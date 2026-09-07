@@ -4,95 +4,103 @@
 {% block page_subtitle %}{{ today|date:"l, d F Y" }} &mdash; Overview{% endblock %}
 
 {% block content %}
-<!-- Stats Row -->
-<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-bottom:24px;">
+<div style="display:flex; flex-direction:column; gap:12px; height:100%; min-height:0;">
 
-  <div style="background:#fff; border-radius:14px; padding:20px; border:1px solid #E2E8F0; display:flex; align-items:center; gap:16px;">
-    <div style="width:48px; height:48px; background:#DBEAFE; border-radius:12px; display:flex; align-items:center; justify-content:center; color:#2563EB; font-size:22px; flex-shrink:0;">
+<!-- Stats Row -->
+<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; flex-shrink:0;">
+
+  <div style="background:#fff; border-radius:14px; padding:14px; border:1px solid #E2E8F0; display:flex; align-items:center; gap:14px;">
+    <div style="width:40px; height:40px; background:#DBEAFE; border-radius:12px; display:flex; align-items:center; justify-content:center; color:#2563EB; font-size:18px; flex-shrink:0;">
       <i class="fas fa-users"></i>
     </div>
     <div>
-      <div style="font-size:26px; font-weight:800; color:#0F172A;">{{ total_employees }}</div>
+      <div style="font-size:22px; font-weight:800; color:#0F172A; line-height:1.1;">{{ total_employees }}</div>
       <div style="font-size:12px; color:#64748B; margin-top:2px;">Active Employees</div>
     </div>
   </div>
 
-  <div style="background:#fff; border-radius:14px; padding:20px; border:1px solid #E2E8F0; display:flex; align-items:center; gap:16px;">
-    <div style="width:48px; height:48px; background:#D1FAE5; border-radius:12px; display:flex; align-items:center; justify-content:center; color:#10B981; font-size:22px; flex-shrink:0;">
+  <div style="background:#fff; border-radius:14px; padding:14px; border:1px solid #E2E8F0; display:flex; align-items:center; gap:14px;">
+    <div style="width:40px; height:40px; background:#D1FAE5; border-radius:12px; display:flex; align-items:center; justify-content:center; color:#10B981; font-size:18px; flex-shrink:0;">
       <i class="fas fa-circle-check"></i>
     </div>
     <div>
-      <div style="font-size:26px; font-weight:800; color:#0F172A;">{{ today_present }}</div>
+      <div style="font-size:22px; font-weight:800; color:#0F172A; line-height:1.1;">{{ today_present }}</div>
       <div style="font-size:12px; color:#64748B; margin-top:2px;">Present Today</div>
-      {% if total_employees %}<div style="font-size:11px; color:#10B981; margin-top:4px;"><i class="fas fa-arrow-up"></i> {{ attendance_rate }}% rate</div>{% endif %}
+      {% if total_employees %}<div style="font-size:11px; color:#10B981; margin-top:2px;"><i class="fas fa-arrow-up"></i> {{ attendance_rate }}% rate</div>{% endif %}
     </div>
   </div>
 
-  <div style="background:#fff; border-radius:14px; padding:20px; border:1px solid #E2E8F0; display:flex; align-items:center; gap:16px;">
-    <div style="width:48px; height:48px; background:#FEE2E2; border-radius:12px; display:flex; align-items:center; justify-content:center; color:#EF4444; font-size:22px; flex-shrink:0;">
+  <div style="background:#fff; border-radius:14px; padding:14px; border:1px solid #E2E8F0; display:flex; align-items:center; gap:14px;">
+    <div style="width:40px; height:40px; background:#FEE2E2; border-radius:12px; display:flex; align-items:center; justify-content:center; color:#EF4444; font-size:18px; flex-shrink:0;">
       <i class="fas fa-circle-xmark"></i>
     </div>
     <div>
-      <div style="font-size:26px; font-weight:800; color:#0F172A;">{{ today_absent }}</div>
+      <div style="font-size:22px; font-weight:800; color:#0F172A; line-height:1.1;">{{ today_absent }}</div>
       <div style="font-size:12px; color:#64748B; margin-top:2px;">Absent Today</div>
     </div>
   </div>
 
-  <div style="background:#fff; border-radius:14px; padding:20px; border:1px solid #E2E8F0; display:flex; align-items:center; gap:16px;">
-    <div style="width:48px; height:48px; background:#FEF3C7; border-radius:12px; display:flex; align-items:center; justify-content:center; color:#F59E0B; font-size:22px; flex-shrink:0;">
+  <div style="background:#fff; border-radius:14px; padding:14px; border:1px solid #E2E8F0; display:flex; align-items:center; gap:14px;">
+    <div style="width:40px; height:40px; background:#FEF3C7; border-radius:12px; display:flex; align-items:center; justify-content:center; color:#F59E0B; font-size:18px; flex-shrink:0;">
       <i class="fas fa-hourglass-half"></i>
     </div>
     <div>
-      <div style="font-size:26px; font-weight:800; color:#0F172A;">{{ pending_leaves }}</div>
+      <div style="font-size:22px; font-weight:800; color:#0F172A; line-height:1.1;">{{ pending_leaves }}</div>
       <div style="font-size:12px; color:#64748B; margin-top:2px;">Pending Leave Requests</div>
-      {% if pending_leaves %}<a href="/leave/requests/" style="font-size:11px; color:#F59E0B; margin-top:4px; display:block; text-decoration:none;">Review now →</a>{% endif %}
+      {% if pending_leaves %}<a href="/leave/requests/" style="font-size:11px; color:#F59E0B; margin-top:2px; display:block; text-decoration:none;">Review now →</a>{% endif %}
     </div>
   </div>
 
 </div>
 
 <!-- Charts Row -->
-<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;">
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; flex:1; min-height:0;">
 
   <!-- Attendance Trend -->
-  <div style="background:#fff; border-radius:14px; padding:20px; border:1px solid #E2E8F0;">
-    <div style="font-size:14px; font-weight:700; color:#0F172A; margin-bottom:16px;"><i class="fas fa-chart-line" style="color:#2563EB; margin-right:8px;"></i>7-Day Attendance Trend</div>
-    <canvas id="trendChart" height="200"></canvas>
+  <div style="background:#fff; border-radius:14px; padding:14px; border:1px solid #E2E8F0; display:flex; flex-direction:column; min-height:0;">
+    <div style="font-size:13px; font-weight:700; color:#0F172A; margin-bottom:8px; flex-shrink:0;"><i class="fas fa-chart-line" style="color:#2563EB; margin-right:8px;"></i>7-Day Attendance Trend</div>
+    <div style="flex:1; min-height:0; position:relative;">
+      <canvas id="trendChart"></canvas>
+    </div>
   </div>
 
   <!-- Department Distribution -->
-  <div style="background:#fff; border-radius:14px; padding:20px; border:1px solid #E2E8F0;">
-    <div style="font-size:14px; font-weight:700; color:#0F172A; margin-bottom:16px;"><i class="fas fa-building" style="color:#8B5CF6; margin-right:8px;"></i>Employees by Department</div>
-    <canvas id="deptChart" height="200"></canvas>
+  <div style="background:#fff; border-radius:14px; padding:14px; border:1px solid #E2E8F0; display:flex; flex-direction:column; min-height:0;">
+    <div style="font-size:13px; font-weight:700; color:#0F172A; margin-bottom:8px; flex-shrink:0;"><i class="fas fa-building" style="color:#8B5CF6; margin-right:8px;"></i>Employees by Department</div>
+    <div style="flex:1; min-height:0; position:relative;">
+      <canvas id="deptChart"></canvas>
+    </div>
   </div>
 
 </div>
 
 <!-- Quick Actions -->
-<div style="background:#fff; border-radius:14px; padding:20px; border:1px solid #E2E8F0;">
-  <div style="font-size:14px; font-weight:700; color:#0F172A; margin-bottom:16px;"><i class="fas fa-bolt" style="color:#F59E0B; margin-right:8px;"></i>Quick Actions</div>
-  <div style="display:flex; flex-wrap:wrap; gap:10px;">
-    <a href="/employees/" style="display:inline-flex; align-items:center; gap:8px; padding:10px 18px; background:#EFF6FF; color:#2563EB; border-radius:8px; font-size:13px; font-weight:600; text-decoration:none; border:1px solid #BFDBFE;">
+<div style="background:#fff; border-radius:14px; padding:12px 14px; border:1px solid #E2E8F0; flex-shrink:0;">
+  <div style="font-size:12px; font-weight:700; color:#0F172A; margin-bottom:8px;"><i class="fas fa-bolt" style="color:#F59E0B; margin-right:8px;"></i>Quick Actions</div>
+  <div style="display:flex; flex-wrap:wrap; gap:8px;">
+    <a href="/employees/" style="display:inline-flex; align-items:center; gap:7px; padding:7px 14px; background:#EFF6FF; color:#2563EB; border-radius:8px; font-size:12px; font-weight:600; text-decoration:none; border:1px solid #BFDBFE;">
       <i class="fas fa-users"></i> Employee Directory
     </a>
-    <a href="/leave/requests/" style="display:inline-flex; align-items:center; gap:8px; padding:10px 18px; background:#FEF3C7; color:#92400E; border-radius:8px; font-size:13px; font-weight:600; text-decoration:none; border:1px solid #FDE68A;">
+    <a href="/leave/requests/" style="display:inline-flex; align-items:center; gap:7px; padding:7px 14px; background:#FEF3C7; color:#92400E; border-radius:8px; font-size:12px; font-weight:600; text-decoration:none; border:1px solid #FDE68A;">
       <i class="fas fa-check-double"></i> Leave Approvals
     </a>
-    <a href="/payroll/" style="display:inline-flex; align-items:center; gap:8px; padding:10px 18px; background:#D1FAE5; color:#065F46; border-radius:8px; font-size:13px; font-weight:600; text-decoration:none; border:1px solid #A7F3D0;">
+    <a href="/payroll/" style="display:inline-flex; align-items:center; gap:7px; padding:7px 14px; background:#D1FAE5; color:#065F46; border-radius:8px; font-size:12px; font-weight:600; text-decoration:none; border:1px solid #A7F3D0;">
       <i class="fas fa-money-bill-wave"></i> Payroll Admin
     </a>
-    <a href="/reports/" style="display:inline-flex; align-items:center; gap:8px; padding:10px 18px; background:#F3E8FF; color:#6B21A8; border-radius:8px; font-size:13px; font-weight:600; text-decoration:none; border:1px solid #E9D5FF;">
+    <a href="/reports/" style="display:inline-flex; align-items:center; gap:7px; padding:7px 14px; background:#F3E8FF; color:#6B21A8; border-radius:8px; font-size:12px; font-weight:600; text-decoration:none; border:1px solid #E9D5FF;">
       <i class="fas fa-chart-bar"></i> Reports
     </a>
-    <a href="/attendance/team/" style="display:inline-flex; align-items:center; gap:8px; padding:10px 18px; background:#FEE2E2; color:#991B1B; border-radius:8px; font-size:13px; font-weight:600; text-decoration:none; border:1px solid #FCA5A5;">
+    <a href="/attendance/team/" style="display:inline-flex; align-items:center; gap:7px; padding:7px 14px; background:#FEE2E2; color:#991B1B; border-radius:8px; font-size:12px; font-weight:600; text-decoration:none; border:1px solid #FCA5A5;">
       <i class="fas fa-calendar-check"></i> Team Attendance
     </a>
     {% if user.is_admin_portal and user.is_staff %}
-    <a href="/admin/" style="display:inline-flex; align-items:center; gap:8px; padding:10px 18px; background:#F1F5F9; color:#475569; border-radius:8px; font-size:13px; font-weight:600; text-decoration:none; border:1px solid #E2E8F0;" target="_blank">
+    <a href="/admin/" style="display:inline-flex; align-items:center; gap:7px; padding:7px 14px; background:#F1F5F9; color:#475569; border-radius:8px; font-size:12px; font-weight:600; text-decoration:none; border:1px solid #E2E8F0;" target="_blank">
       <i class="fas fa-screwdriver-wrench"></i> Django Admin
     </a>
     {% endif %}
   </div>
+</div>
+
 </div>
 
 <script>
@@ -118,8 +126,8 @@ new Chart(trendCtx, {
         ]
     },
     options: {
-        responsive: true, maintainAspectRatio: true,
-        plugins: { legend: { position: 'bottom' } },
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
         scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
     }
 });
@@ -137,7 +145,7 @@ new Chart(deptCtx, {
         }]
     },
     options: {
-        responsive: true,
+        responsive: true, maintainAspectRatio: false,
         plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
     }
 });

@@ -196,7 +196,8 @@ class Command(BaseCommand):
         from apps.shifts.models import Shift
 
         today = timezone.now().date()
-        employees = list(Employee.objects.filter(status='active'))
+        demo_codes = ['EMP001', 'EMP002', 'EMP003', 'EMP004']
+        employees = list(Employee.objects.filter(status='active', employee_code__in=demo_codes))
 
         try:
             shift = Shift.objects.get(code='GEN')

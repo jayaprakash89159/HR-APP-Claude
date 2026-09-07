@@ -1,0 +1,252 @@
+# ================================================================
+# WorkSphere HR - Production Docker Compose
+# All issues fixed:
+#   1. celery-beat waits for migrations using table-check script
+#   2. All Redis URLs hardcoded (no variable interpolation)
+#   3. No SSL volume mounts
+#   4. Correct DB credentials everywhere
+# ================================================================
+
+services:
+
+  # ─────────────────────────────────────
+  # PostgreSQL
+  # ─────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: worksphere2_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       worksphere_hr
+      POSTGRES_USER:     worksphere
+      POSTGRES_PASSWORD: worksphere123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U worksphere -d worksphere_hr"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - worksphere_net
+
+  # ─────────────────────────────────────
+  # Redis
+  # ─────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: worksphere2_redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --requirepass worksphere123
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "worksphere123", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - worksphere_net
+
+  # ─────────────────────────────────────
+  # Django (runs migrations + web server)
+  # ─────────────────────────────────────
+  django:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: worksphere_hr_app:v2
+    container_name: worksphere2_django
+    restart: unless-stopped
+    environment:
+      DJANGO_SETTINGS_MODULE: worksphere.settings
+      DB_HOST:               postgres
+      DB_PORT:               "5432"
+      DB_NAME:               worksphere_hr
+      DB_USER:               worksphere
+      DB_PASSWORD:           worksphere123
+      REDIS_URL:             "redis://:worksphere123@redis:6379/0"
+      CELERY_BROKER_URL:     "redis://:worksphere123@redis:6379/1"
+      CELERY_RESULT_BACKEND: "redis://:worksphere123@redis:6379/2"
+      SECRET_KEY:            "WorkSphereHR-Secret-Key-2025-Production-MinFiftyCharsRequired!!"
+      DEBUG:                 "False"
+      ALLOWED_HOSTS:         "localhost,127.0.0.1,0.0.0.0"
+      CSRF_TRUSTED_ORIGINS:  "http://localhost,http://localhost:8090,http://localhost:8091,http://127.0.0.1,http://127.0.0.1:8090,http://127.0.0.1:8091"
+      TIME_ZONE:             "Asia/Kolkata"
+      COMPANY_NAME:          "WorkSphere HR"
+    command: >
+      sh -c "
+        python manage.py wait_for_db &&
+        python manage.py migrate --noinput &&
+        python manage.py collectstatic --noinput --clear &&
+        python manage.py create_demo_data &&
+        gunicorn worksphere.wsgi:application --config gunicorn.conf.py
+      "
+    volumes:
+      - media_files:/app/media
+      - static_files:/app/staticfiles
+    expose:
+      - "8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - worksphere_net
+
+  # ─────────────────────────────────────
+  # Celery Worker
+  # ─────────────────────────────────────
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: worksphere_hr_app:v2
+    container_name: worksphere2_celery
+    restart: unless-stopped
+    environment:
+      DJANGO_SETTINGS_MODULE: worksphere.settings
+      DB_HOST:               postgres
+      DB_PORT:               "5432"
+      DB_NAME:               worksphere_hr
+      DB_USER:               worksphere
+      DB_PASSWORD:           worksphere123
+      REDIS_URL:             "redis://:worksphere123@redis:6379/0"
+      CELERY_BROKER_URL:     "redis://:worksphere123@redis:6379/1"
+      CELERY_RESULT_BACKEND: "redis://:worksphere123@redis:6379/2"
+      SECRET_KEY:            "WorkSphereHR-Secret-Key-2025-Production-MinFiftyCharsRequired!!"
+    command: >
+      sh -c "
+        python manage.py wait_for_db &&
+        python /app/scripts/wait_for_migrations.py &&
+        celery -A worksphere worker -l info -c 2
+      "
+    volumes:
+      - media_files:/app/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - worksphere_net
+
+  # ─────────────────────────────────────
+  # Celery Beat — waits for migrations
+  # ─────────────────────────────────────
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: worksphere_hr_app:v2
+    container_name: worksphere2_celery_beat
+    restart: unless-stopped
+    environment:
+      DJANGO_SETTINGS_MODULE: worksphere.settings
+      DB_HOST:               postgres
+      DB_PORT:               "5432"
+      DB_NAME:               worksphere_hr
+      DB_USER:               worksphere
+      DB_PASSWORD:           worksphere123
+      REDIS_URL:             "redis://:worksphere123@redis:6379/0"
+      CELERY_BROKER_URL:     "redis://:worksphere123@redis:6379/1"
+      CELERY_RESULT_BACKEND: "redis://:worksphere123@redis:6379/2"
+      SECRET_KEY:            "WorkSphereHR-Secret-Key-2025-Production-MinFiftyCharsRequired!!"
+    # wait_for_migrations.py polls until django_celery_beat_periodictask exists
+    command: >
+      sh -c "
+        python manage.py wait_for_db &&
+        python /app/scripts/wait_for_migrations.py &&
+        celery -A worksphere beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+      "
+    volumes:
+      - celerybeat_data:/tmp
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - worksphere_net
+
+  # ─────────────────────────────────────
+  # Flower (Celery Monitor)
+  # ─────────────────────────────────────
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: worksphere_hr_app:v2
+    container_name: worksphere2_flower
+    restart: unless-stopped
+    environment:
+      DJANGO_SETTINGS_MODULE: worksphere.settings
+      CELERY_BROKER_URL:     "redis://:worksphere123@redis:6379/1"
+      CELERY_RESULT_BACKEND: "redis://:worksphere123@redis:6379/2"
+      SECRET_KEY:            "WorkSphereHR-Secret-Key-2025-Production-MinFiftyCharsRequired!!"
+      DB_HOST:               postgres
+      DB_PORT:               "5432"
+      DB_NAME:               worksphere_hr
+      DB_USER:               worksphere
+      DB_PASSWORD:           worksphere123
+    command: >
+      sh -c "
+        python /app/scripts/wait_for_migrations.py &&
+        celery -A worksphere flower
+        --port=5555
+        --basic_auth=admin:flower123
+        --broker=redis://:worksphere123@redis:6379/1
+      "
+    ports:
+      - "5566:5555"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - worksphere_net
+
+  # ─────────────────────────────────────
+  # Nginx
+  # ─────────────────────────────────────
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: worksphere2_nginx
+    restart: unless-stopped
+    ports:
+      - "8090:80"
+      - "8091:8000"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - static_files:/app/staticfiles:ro
+      - media_files:/app/media:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - django
+    networks:
+      - worksphere_net
+
+volumes:
+  postgres_data:
+  redis_data:
+  media_files:
+  static_files:
+  nginx_logs:
+  celerybeat_data:
+
+networks:
+  worksphere_net:
+    driver: bridge
