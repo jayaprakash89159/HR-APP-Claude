@@ -38,13 +38,13 @@ def reports_dashboard(request):
     # Aggregate at DB level — never iterate for counting
     att_qs = Attendance.objects.filter(date__gte=period_start, date__lte=today, approval_status='approved')
     agg = att_qs.aggregate(
-        present=Count('id', filter=Q(status__in=['present', 'late_mark', 'on_duty'])),
-        absent=Count('id', filter=Q(status='absent')),
+        present=Count('employee_id', filter=Q(status__in=['present', 'late_mark', 'on_duty']), distinct=True),
+        attended=Count('employee_id', distinct=True),
         leave=Count('id', filter=Q(status='leave')),
         overtime=Sum('overtime_minutes'),
     )
     present_count = agg['present'] or 0
-    absent_count = agg['absent'] or 0
+    absent_count = max(0, total_employees - (agg['attended'] or 0))
     overtime_mins = agg['overtime'] or 0
 
     # 30-day trend — single aggregated query
@@ -54,8 +54,8 @@ def reports_dashboard(request):
         .annotate(day=TruncDate('date'))
         .values('day')
         .annotate(
-            present=Count('id', filter=Q(status__in=['present', 'late_mark', 'on_duty'])),
-            absent=Count('id', filter=Q(status='absent')),
+            present=Count('employee_id', filter=Q(status__in=['present', 'late_mark', 'on_duty']), distinct=True),
+            attended=Count('employee_id', distinct=True),
         )
         .order_by('day')
     )
@@ -68,7 +68,7 @@ def reports_dashboard(request):
         trend_labels.append(d.strftime('%d %b'))
         rec = daily_map.get(key, {})
         trend_present.append(rec.get('present', 0))
-        trend_absent.append(rec.get('absent', 0))
+        trend_absent.append(max(0, total_employees - rec.get('attended', 0)))
 
     # Department breakdown
     dept_labels, dept_counts = [], []

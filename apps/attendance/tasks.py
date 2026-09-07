@@ -34,22 +34,6 @@ def auto_punch_out():
 
 @shared_task(name='apps.attendance.tasks.generate_daily_summary')
 def generate_daily_summary():
-    """Generate daily attendance summary"""
-    from apps.attendance.models import Attendance
-    from apps.employees.models import Employee
+    """Return the current day's recorded attendance without creating records."""
     today = timezone.now().date()
-
-    # Mark absent for employees with no record today (weekday only)
-    if today.weekday() < 5:  # Monday-Friday
-        employees = Employee.objects.filter(status='active')
-        created = 0
-        for emp in employees:
-            _, was_created = Attendance.objects.get_or_create(
-                employee=emp,
-                date=today,
-                defaults={'status': 'absent'}
-            )
-            if was_created:
-                created += 1
-        return f'Generated {created} absent records for {today}'
-    return f'{today} is a weekend, skipping'
+    return f'Attendance summary available for {today}; no records were created'

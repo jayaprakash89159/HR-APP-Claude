@@ -54,6 +54,13 @@ def home(request):
 def employee_dashboard_view(request, employee, today):
     # Today's attendance
     today_attendance = Attendance.objects.filter(employee=employee, date=today).first()
+    if today_attendance is None and today.weekday() < 5:
+        today_attendance = type('MissingAttendance', (), {
+            'status': 'absent',
+            'clock_in': None,
+            'clock_out': None,
+            'get_status_display': lambda self: 'Absent',
+        })()
 
     # Monthly stats
     month_start = today.replace(day=1)
@@ -61,9 +68,15 @@ def employee_dashboard_view(request, employee, today):
         employee=employee, date__gte=month_start, date__lte=today
     )
 
+    recorded_dates = set(monthly_records.values_list('date', flat=True))
+    elapsed_weekdays = sum(
+        1 for day_offset in range((today - month_start).days + 1)
+        if (month_start + timedelta(days=day_offset)).weekday() < 5
+    )
+    missing_weekdays = max(0, elapsed_weekdays - len(recorded_dates))
     monthly_stats = {
         'present': monthly_records.filter(status__in=['present', 'late_mark']).count(),
-        'absent': monthly_records.filter(status='absent').count(),
+        'absent': monthly_records.filter(status='absent').count() + missing_weekdays,
         'half_day': monthly_records.filter(status='half_day').count(),
         'late_mark': monthly_records.filter(status='late_mark').count(),
         'on_duty': monthly_records.filter(status='on_duty').count(),
@@ -137,7 +150,7 @@ def employee_dashboard_view(request, employee, today):
                     # Check if it's a weekday
                     if day_date.weekday() >= 5:  # Weekend
                         css = 'week-off'
-                    elif day_date < today:
+                    elif day_date <= today:
                         css = 'absent'
                     else:
                         css = ''
@@ -168,9 +181,16 @@ def employee_dashboard_view(request, employee, today):
 
 def hr_dashboard(request, employee, today):
     # HR-level stats
-    total_employees = Employee.objects.filter(status='active').count()
-    today_present = Attendance.objects.filter(date=today, approval_status='approved', status__in=['present', 'late_mark', 'on_duty']).count()
-    today_absent = Attendance.objects.filter(date=today, approval_status='approved', status='absent').count()
+    active_employees = Employee.objects.filter(status='active')
+    total_employees = active_employees.count()
+    approved_today = Attendance.objects.filter(
+        employee__status='active', date=today, approval_status='approved'
+    )
+    today_present = approved_today.filter(
+        status__in=['present', 'late_mark', 'on_duty']
+    ).values('employee_id').distinct().count()
+    # Missing attendance is absent for reporting, without creating a row.
+    today_absent = total_employees - approved_today.values('employee_id').distinct().count()
     pending_leaves = LeaveApplication.objects.filter(status='pending').count()
 
     # Department breakdown
@@ -192,8 +212,8 @@ def hr_dashboard(request, employee, today):
         .annotate(day=TruncDate('date'))
         .values('day')
         .annotate(
-            present=Count('id', filter=Q(status__in=['present', 'late_mark', 'on_duty'])),
-            absent=Count('id', filter=Q(status='absent')),
+            present=Count('employee_id', filter=Q(status__in=['present', 'late_mark', 'on_duty']), distinct=True),
+            attended=Count('employee_id', distinct=True),
         )
     )
     daily_map = {str(r['day']): r for r in daily_qs}
@@ -206,7 +226,7 @@ def hr_dashboard(request, employee, today):
         trend_labels.append(day.strftime('%d %b'))
         rec = daily_map.get(key, {})
         trend_present.append(rec.get('present', 0))
-        trend_absent.append(rec.get('absent', 0))
+        trend_absent.append(max(0, total_employees - rec.get('attended', 0)))
 
     context = {
         'employee': employee,
@@ -231,10 +251,13 @@ def manager_dashboard(request, employee, today):
     team = Employee.objects.filter(reporting_manager=employee, status='active')
     team_ids = team.values_list('id', flat=True)
 
-    team_present = Attendance.objects.filter(date=today, employee_id__in=team_ids, approval_status='approved',
-                                              status__in=['present', 'late_mark', 'on_duty']).count()
-    team_absent = Attendance.objects.filter(date=today, employee_id__in=team_ids, approval_status='approved',
-                                             status='absent').count()
+    approved_team_today = Attendance.objects.filter(
+        date=today, employee_id__in=team_ids, approval_status='approved'
+    )
+    team_present = approved_team_today.filter(
+        status__in=['present', 'late_mark', 'on_duty']
+    ).values('employee_id').distinct().count()
+    team_absent = team.count() - approved_team_today.values('employee_id').distinct().count()
     pending_leaves = LeaveApplication.objects.filter(
         employee__in=team, status='pending'
     ).select_related('employee', 'leave_type').order_by('-created_at')[:5]

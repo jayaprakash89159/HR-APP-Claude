@@ -752,7 +752,8 @@ def leave_type_edit(request, pk):
 @admin_required
 def attendance_list(request):
     from apps.attendance.models import Attendance
-    from apps.employees.models import Department
+    from apps.employees.models import Department, Employee
+    from datetime import date, timedelta
     today = timezone.now().date()
     date_from = request.GET.get('date_from', (today - timezone.timedelta(days=6)).isoformat())
     date_to = request.GET.get('date_to', today.isoformat())
@@ -766,8 +767,41 @@ def attendance_list(request):
     if dept_id: qs = qs.filter(employee__department_id=dept_id)
     if status_f: qs = qs.filter(status=status_f)
     if search: qs = qs.filter(Q(employee__first_name__icontains=search)|Q(employee__last_name__icontains=search))
+
+    records = list(qs[:500])
+    # Missing weekdays are displayed as absent, but are never saved as rows.
+    try:
+        first_date = date.fromisoformat(date_from)
+        last_date = date.fromisoformat(date_to)
+    except (TypeError, ValueError):
+        first_date, last_date = today - timedelta(days=6), today
+
+    employees = Employee.objects.filter(status='active')
+    if dept_id:
+        employees = employees.filter(department_id=dept_id)
+    if search:
+        employees = employees.filter(Q(first_name__icontains=search) | Q(last_name__icontains=search))
+    existing = {(record.employee_id, record.date) for record in records}
+    if not status_f or status_f == 'absent':
+        for current_date in (first_date + timedelta(days=offset)
+                             for offset in range((last_date - first_date).days + 1)):
+            if current_date > today or current_date.weekday() >= 5:
+                continue
+            for employee in employees.select_related('department'):
+                if (employee.id, current_date) in existing:
+                    continue
+                records.append(type('MissingAttendance', (), {
+                    'employee': employee,
+                    'date': current_date,
+                    'clock_in': None,
+                    'clock_out': None,
+                    'effective_working_minutes': 0,
+                    'status': 'absent',
+                    'get_status_display': lambda self: 'Absent',
+                })())
+    records.sort(key=lambda record: (record.date, record.employee.first_name), reverse=True)
     return render(request, 'hr_admin/attendance/list.html', {
-        'records': qs[:500], 'total': qs.count(),
+        'records': records[:500], 'total': len(records),
         'departments': Department.objects.filter(is_active=True).order_by('name'),
         'date_from': date_from, 'date_to': date_to,
         'dept_id': dept_id, 'status_f': status_f, 'search': search,
