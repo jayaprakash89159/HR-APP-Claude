@@ -7,6 +7,7 @@ import 'services/api_service.dart';
 import 'services/auth_service.dart';
 import 'services/attendance_service.dart';
 import 'services/leave_service.dart';
+import 'services/payslip_service.dart';
 import 'utils/app_theme.dart';
 import 'utils/app_router.dart';
 
@@ -43,6 +44,10 @@ void main() async {
         ChangeNotifierProxyProvider<ApiService, LeaveService>(
           create: (ctx) => LeaveService(ctx.read<ApiService>()),
           update: (ctx, api, prev) => prev ?? LeaveService(api),
+        ),
+        ChangeNotifierProxyProvider<ApiService, PayslipService>(
+          create: (ctx) => PayslipService(ctx.read<ApiService>()),
+          update: (ctx, api, prev) => prev ?? PayslipService(api),
         ),
       ],
       child: const WorkSphereApp(),
