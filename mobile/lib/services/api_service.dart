@@ -4,7 +4,10 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
-  static String baseUrl = 'http://10.0.2.2:8000'; // Android emulator default
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://10.0.2.2:8000',
+  );
   static const _storage = FlutterSecureStorage();
 
   // Token management

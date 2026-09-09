@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
 import 'services/attendance_service.dart';
+import 'services/leave_service.dart';
 import 'utils/app_theme.dart';
 import 'utils/app_router.dart';
 
@@ -38,6 +39,10 @@ void main() async {
         ChangeNotifierProxyProvider<ApiService, AttendanceService>(
           create: (ctx) => AttendanceService(ctx.read<ApiService>()),
           update: (ctx, api, prev) => prev ?? AttendanceService(api),
+        ),
+        ChangeNotifierProxyProvider<ApiService, LeaveService>(
+          create: (ctx) => LeaveService(ctx.read<ApiService>()),
+          update: (ctx, api, prev) => prev ?? LeaveService(api),
         ),
       ],
       child: const WorkSphereApp(),
