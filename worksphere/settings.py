@@ -224,6 +224,10 @@ WORKSPHERE = {
     'ALLOWED_FILE_TYPES': ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx', 'xls', 'xlsx'],
 }
 
+# Intentionally empty by default. Configure jurisdiction-specific payroll
+# rules per deployment; the payroll engine never invents statutory rates.
+PAYROLL_STATUTORY_RULES = {}
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,

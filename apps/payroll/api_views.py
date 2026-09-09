@@ -2,6 +2,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import permissions
+from django.http import HttpResponse
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 
@@ -38,6 +39,7 @@ def serialize_payslip(ps, detail=False):
             'tds': float(ps.tds),
             'loan_deduction': float(ps.loan_deduction),
             'other_deductions': float(ps.other_deductions),
+            'calculation_details': ps.calculation_details,
         })
     return base
 
@@ -52,7 +54,9 @@ class MyPayslipsAPIView(APIView):
         except Exception:
             return Response([])
         year = request.query_params.get('year')
-        qs = PayslipRecord.objects.filter(employee=emp).select_related('payroll_period').order_by('-payroll_period__year', '-payroll_period__month')
+        qs = PayslipRecord.objects.filter(
+            employee=emp, status__in=('released', 'paid')
+        ).select_related('payroll_period').order_by('-payroll_period__year', '-payroll_period__month')
         if year:
             qs = qs.filter(payroll_period__year=int(year))
         return Response([serialize_payslip(ps) for ps in qs[:24]])
@@ -73,7 +77,40 @@ class PayslipDetailAPIView(APIView):
                     return Response({'error': 'Permission denied'}, status=403)
             except Exception:
                 return Response({'error': 'Permission denied'}, status=403)
+            if ps.status not in ('released', 'paid'):
+                return Response({'error': 'This payslip has not been released.'}, status=403)
         return Response(serialize_payslip(ps, detail=True))
+
+
+@extend_schema(request=None, responses=None)
+class PayslipPDFAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        try:
+            payslip = PayslipRecord.objects.select_related(
+                'payroll_period', 'employee', 'employee__department', 'employee__designation'
+            ).get(pk=pk)
+        except PayslipRecord.DoesNotExist:
+            return Response({'error': 'Not found'}, status=404)
+
+        is_payroll_user = getattr(request.user, 'can_manage_payroll', False)
+        is_owner = False
+        if not is_payroll_user:
+            try:
+                is_owner = payslip.employee == request.user.employee_profile
+            except Exception:
+                is_owner = False
+            if not is_owner or payslip.status not in ('released', 'paid'):
+                return Response({'error': 'This payslip is not available.'}, status=403)
+        if payslip.status == 'draft':
+            return Response({'error': 'Draft payslips cannot be downloaded.'}, status=409)
+
+        from .pdf_service import generate_payslip_pdf
+        content = generate_payslip_pdf(payslip)
+        response = HttpResponse(content, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{payslip.payslip_number}.pdf"'
+        return response
 
 
 @extend_schema(request=None, responses=None)

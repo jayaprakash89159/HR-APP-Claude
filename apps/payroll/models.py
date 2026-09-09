@@ -23,6 +23,32 @@ class SalaryStructure(models.Model):
         return self.name
 
 
+class SalaryStructureComponent(models.Model):
+    """A component included in a salary structure, in display/calculation order."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    salary_structure = models.ForeignKey(
+        SalaryStructure, on_delete=models.CASCADE, related_name='components'
+    )
+    component = models.ForeignKey(
+        'SalaryComponent', on_delete=models.PROTECT, related_name='structures'
+    )
+    display_order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'hr_salary_structure_components'
+        ordering = ['display_order', 'component__display_order', 'component__name']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['salary_structure', 'component'],
+                name='unique_salary_structure_component',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.salary_structure} - {self.component}'
+
+
 class SalaryComponent(models.Model):
     COMPONENT_TYPE_CHOICES = [('earning', 'Earning'), ('deduction', 'Deduction')]
     CALCULATION_TYPE_CHOICES = [
@@ -37,6 +63,7 @@ class SalaryComponent(models.Model):
     code = models.CharField(max_length=20, unique=True)
     component_type = models.CharField(max_length=10, choices=COMPONENT_TYPE_CHOICES)
     calculation_type = models.CharField(max_length=20, choices=CALCULATION_TYPE_CHOICES, default='fixed')
+    fixed_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     percentage = models.DecimalField(max_digits=6, decimal_places=2, default=0)
     formula = models.TextField(blank=True)
     is_taxable = models.BooleanField(default=True)
@@ -95,6 +122,7 @@ class EmployeeSalary(models.Model):
     effective_from = models.DateField()
     effective_to = models.DateField(null=True, blank=True)
     salary_type = models.CharField(max_length=10, choices=SALARY_TYPE_CHOICES, default='monthly')
+    revision_reason = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     revised_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -111,7 +139,7 @@ class PayrollPeriod(models.Model):
     STATUS_CHOICES = [
         ('draft', 'Draft'), ('processing', 'Processing'),
         ('processed', 'Processed'), ('approved', 'Approved'),
-        ('paid', 'Paid'), ('locked', 'Locked'),
+        ('released', 'Released'), ('paid', 'Paid'), ('locked', 'Locked'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -131,6 +159,16 @@ class PayrollPeriod(models.Model):
     approved_at = models.DateTimeField(null=True, blank=True)
     approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
                                      on_delete=models.SET_NULL, related_name='approved_payrolls')
+    released_at = models.DateTimeField(null=True, blank=True)
+    released_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                    on_delete=models.SET_NULL, related_name='released_payrolls')
+    paid_at = models.DateTimeField(null=True, blank=True)
+    paid_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                on_delete=models.SET_NULL, related_name='paid_payrolls')
+    locked_at = models.DateTimeField(null=True, blank=True)
+    locked_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                  on_delete=models.SET_NULL, related_name='locked_payrolls')
+    rejection_reason = models.TextField(blank=True)
     remarks = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -146,7 +184,7 @@ class PayrollPeriod(models.Model):
 class PayslipRecord(models.Model):
     STATUS_CHOICES = [
         ('draft', 'Draft'), ('generated', 'Generated'),
-        ('approved', 'Approved'), ('paid', 'Paid'),
+        ('approved', 'Approved'), ('released', 'Released'), ('paid', 'Paid'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -191,9 +229,13 @@ class PayslipRecord(models.Model):
 
     # Net
     net_salary = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    calculation_details = models.JSONField(default=dict, blank=True)
 
     # Payslip file
     payslip_pdf = models.FileField(upload_to='payslips/', null=True, blank=True)
+    released_at = models.DateTimeField(null=True, blank=True)
+    released_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                    on_delete=models.SET_NULL, related_name='released_payslips')
     is_email_sent = models.BooleanField(default=False)
     email_sent_at = models.DateTimeField(null=True, blank=True)
 

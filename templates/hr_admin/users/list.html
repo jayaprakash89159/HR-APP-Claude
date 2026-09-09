@@ -24,7 +24,7 @@
         {% for u in users %}
         <tr class="hover:bg-gray-50">
           <td class="px-4 py-3 text-sm text-gray-900 font-medium">{{ u.email }}</td>
-          <td class="px-4 py-3 text-sm text-gray-600">{% if u.first_name %}{{ u.first_name }} {{ u.last_name }}{% else %}—{% endif %}</td>
+          <td class="px-4 py-3 text-sm text-gray-600">{% if u.employee_profile %}{{ u.employee_profile.first_name }} {{ u.employee_profile.last_name }}{% else %}—{% endif %}</td>
           <td class="px-4 py-3"><span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-purple-100 text-purple-700">{{ u.get_role_display }}</span></td>
           <td class="px-4 py-3"><span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full {% if u.is_active %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-600{% endif %}">{% if u.is_active %}Active{% else %}Inactive{% endif %}</span></td>
           <td class="px-4 py-3 text-sm text-gray-500">{{ u.date_joined|date:"d M Y" }}</td>

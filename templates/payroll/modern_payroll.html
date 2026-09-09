@@ -10,8 +10,12 @@
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
         <button onclick="showSection('summary')" id="btn-summary" class="pay-btn active px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg">Summary</button>
         <button onclick="showSection('payslips')" id="btn-payslips" class="pay-btn px-4 py-2 bg-white text-gray-700 border border-gray-200 text-sm font-semibold rounded-lg">Payslips</button>
+        <button onclick="showSection('periods')" id="btn-periods" class="pay-btn px-4 py-2 bg-white text-gray-700 border border-gray-200 text-sm font-semibold rounded-lg">Payroll Periods</button>
         <a href="/reports/payroll/" class="px-4 py-2 bg-white text-gray-700 border border-gray-200 text-sm font-semibold rounded-lg hover:bg-gray-50">Payroll Reports</a>
-        <a href="/admin/" target="_blank" class="px-4 py-2 bg-white text-gray-700 border border-gray-200 text-sm font-semibold rounded-lg hover:bg-gray-50"><i class="fas fa-cog mr-1"></i>Configure</a>
+        <a href="/admin/payroll/salarycomponent/" target="_blank" class="px-4 py-2 bg-white text-gray-700 border border-gray-200 text-sm font-semibold rounded-lg hover:bg-gray-50"><i class="fas fa-sliders-h mr-1"></i>Salary Components</a>
+        <a href="/admin/payroll/salarystructure/" target="_blank" class="px-4 py-2 bg-white text-gray-700 border border-gray-200 text-sm font-semibold rounded-lg hover:bg-gray-50"><i class="fas fa-layer-group mr-1"></i>Salary Structures</a>
+        <a href="/admin/payroll/employeesalary/" target="_blank" class="px-4 py-2 bg-white text-gray-700 border border-gray-200 text-sm font-semibold rounded-lg hover:bg-gray-50"><i class="fas fa-user-tag mr-1"></i>Employee Salaries</a>
+        <a href="/admin/payroll/payrollperiod/" target="_blank" class="px-4 py-2 bg-white text-gray-700 border border-gray-200 text-sm font-semibold rounded-lg hover:bg-gray-50"><i class="fas fa-calendar-alt mr-1"></i>Payroll Periods</a>
     </div>
 
     <!-- Summary Section -->
@@ -41,6 +45,23 @@
             </div>
         </div>
     </div>
+
+    <!-- Payroll Period Workflow -->
+    <div id="sec-periods" class="hidden">
+        <div class="bg-white rounded-xl shadow-sm border p-5 mb-5">
+            <h3 class="font-semibold text-gray-800 mb-3">Create payroll period</h3>
+            <form id="periodForm" class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <input id="periodName" class="px-3 py-2 border rounded-lg" placeholder="Name (optional)">
+                <input id="periodMonth" class="px-3 py-2 border rounded-lg" type="number" min="1" max="12" required placeholder="Month">
+                <input id="periodYear" class="px-3 py-2 border rounded-lg" type="number" min="2020" required placeholder="Year">
+                <input id="periodFrom" class="px-3 py-2 border rounded-lg" type="date" required>
+                <input id="periodTo" class="px-3 py-2 border rounded-lg" type="date" required>
+                <button class="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold" type="submit">Create period</button>
+            </form>
+            <p id="periodMessage" class="text-sm mt-3"></p>
+        </div>
+        <div id="periodsBody" class="bg-white rounded-xl shadow-sm border overflow-x-auto"></div>
+    </div>
 </div>
 
 <script>
@@ -53,7 +74,49 @@ function showSection(name) {
     document.getElementById('btn-' + name).className = document.getElementById('btn-' + name).className
         .replace('bg-white text-gray-700 border border-gray-200', 'bg-blue-600 text-white');
     if (name === 'payslips') loadAllPayslips();
+    if (name === 'periods') loadPeriods();
 }
+
+function csrfToken() {
+    return document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1] || '';
+}
+
+function periodAction(action) {
+    return action === 'process' ? 'Calculate' : action === 'mark_paid' ? 'Mark paid' : action[0].toUpperCase() + action.slice(1);
+}
+
+async function loadPeriods() {
+    const body = document.getElementById('periodsBody');
+    body.innerHTML = '<div class="p-8 text-center text-gray-400">Loading periods…</div>';
+    const response = await fetch('/api/v1/payroll/manage/periods/', {credentials: 'include'});
+    if (!response.ok) { body.innerHTML = '<div class="p-8 text-center text-red-500">Unable to load payroll periods.</div>'; return; }
+    const periods = await response.json();
+    body.innerHTML = `<table class="w-full"><thead><tr class="bg-gray-50 border-b text-left text-xs font-semibold text-gray-500 uppercase"><th class="px-4 py-3">Period</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Employees</th><th class="px-4 py-3">Net</th><th class="px-4 py-3">Actions</th></tr></thead><tbody class="divide-y">${periods.map(p => `<tr><td class="px-4 py-3">${p.name}</td><td class="px-4 py-3 font-semibold">${p.status}</td><td class="px-4 py-3">${p.total_employees}</td><td class="px-4 py-3">₹${Number(p.total_net).toLocaleString('en-IN')}</td><td class="px-4 py-3 flex gap-2">${periodActions(p).map(a => `<button onclick="transitionPeriod('${p.id}','${a}')" class="text-xs px-2 py-1 border rounded">${periodAction(a)}</button>`).join('')}</td></tr>`).join('')}</tbody></table>`;
+}
+
+function periodActions(period) {
+    return {draft: ['process'], processed: ['approve'], approved: ['release'], released: ['mark_paid'], paid: ['lock']}[period.status] || [];
+}
+
+async function transitionPeriod(id, action) {
+    const response = await fetch(`/api/v1/payroll/manage/periods/${id}/transition/`, {
+        method: 'POST', credentials: 'include', headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken()}, body: JSON.stringify({action})
+    });
+    const data = await response.json();
+    document.getElementById('periodMessage').textContent = response.ok ? `Period moved to ${data.status}.` : (data.error || 'Action failed.');
+    document.getElementById('periodMessage').className = response.ok ? 'text-sm mt-3 text-green-600' : 'text-sm mt-3 text-red-600';
+    loadPeriods();
+}
+
+document.getElementById('periodForm')?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const payload = {name: document.getElementById('periodName').value, month: Number(document.getElementById('periodMonth').value), year: Number(document.getElementById('periodYear').value), from_date: document.getElementById('periodFrom').value, to_date: document.getElementById('periodTo').value};
+    const response = await fetch('/api/v1/payroll/manage/periods/', {method: 'POST', credentials: 'include', headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken()}, body: JSON.stringify(payload)});
+    const data = await response.json();
+    document.getElementById('periodMessage').textContent = response.ok ? 'Payroll period created.' : (data.error || 'Unable to create period.');
+    document.getElementById('periodMessage').className = response.ok ? 'text-sm mt-3 text-green-600' : 'text-sm mt-3 text-red-600';
+    if (response.ok) { event.target.reset(); loadPeriods(); }
+});
 
 async function loadSummary() {
     const grid = document.getElementById('summaryGrid');

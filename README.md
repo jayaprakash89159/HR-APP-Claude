@@ -139,26 +139,30 @@ worksphere_hr/
 
 ## 📱 Mobile App Setup
 
+Install Flutter 3.10 or newer with the Android SDK and run these commands from the repository root:
+
 ```bash
 cd mobile
+flutter create --platforms=android .
 flutter pub get
 
-# Android
-flutter run -d android
+# Android emulator. 10.0.2.2 points to the host machine.
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
 
-# iOS
-flutter run -d ios
+# Physical Android device on the same network as the computer.
+flutter run --dart-define=API_BASE_URL=http://YOUR_COMPUTER_IP:8000
 
-# Build release APK
-flutter build apk --release
+# Build release APK for production.
+flutter build apk --release --dart-define=API_BASE_URL=https://your-domain.com
 
-# Build iOS
-flutter build ios --release
+# The generated APK is at:
+# build/app/outputs/flutter-apk/app-release.apk
 ```
 
-Update `lib/services/api_service.dart` with your server URL:
-```dart
-static String baseUrl = 'https://your-domain.com';
+For a physical device, add its computer IP to `ALLOWED_HOSTS` in `.env`, then restart Django. Start the backend with:
+
+```bash
+python manage.py runserver 0.0.0.0:8000
 ```
 
 **Required Permissions (AndroidManifest.xml):**

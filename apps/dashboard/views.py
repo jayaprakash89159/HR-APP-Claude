@@ -68,15 +68,11 @@ def employee_dashboard_view(request, employee, today):
         employee=employee, date__gte=month_start, date__lte=today
     )
 
-    recorded_dates = set(monthly_records.values_list('date', flat=True))
-    elapsed_weekdays = sum(
-        1 for day_offset in range((today - month_start).days + 1)
-        if (month_start + timedelta(days=day_offset)).weekday() < 5
-    )
-    missing_weekdays = max(0, elapsed_weekdays - len(recorded_dates))
     monthly_stats = {
         'present': monthly_records.filter(status__in=['present', 'late_mark']).count(),
-        'absent': monthly_records.filter(status='absent').count() + missing_weekdays,
+        # Do not infer absence from a missing row. An employee may be new,
+        # on an unrecorded holiday, or awaiting an admin attendance decision.
+        'absent': monthly_records.filter(status='absent').count(),
         'half_day': monthly_records.filter(status='half_day').count(),
         'late_mark': monthly_records.filter(status='late_mark').count(),
         'on_duty': monthly_records.filter(status='on_duty').count(),
@@ -150,7 +146,7 @@ def employee_dashboard_view(request, employee, today):
                     # Check if it's a weekday
                     if day_date.weekday() >= 5:  # Weekend
                         css = 'week-off'
-                    elif day_date <= today:
+                    elif record and record.status == 'absent':
                         css = 'absent'
                     else:
                         css = ''

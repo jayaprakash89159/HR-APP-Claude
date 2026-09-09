@@ -86,8 +86,6 @@ def employee_add(request):
                     email=email,
                     password='Welcome@123',  # temp password
                     role='employee',
-                    first_name=data.get('first_name',''),
-                    last_name=data.get('last_name',''),
                 )
 
                 dept = Department.objects.get(id=data['department'])
@@ -286,7 +284,6 @@ def employee_bulk_upload(request):
 
                 user = User.objects.create_user(
                     email=email, password='Welcome@123', role='employee',
-                    first_name=row['first_name'], last_name=row['last_name'],
                 )
 
                 last = Employee.objects.order_by('-created_at').first()
@@ -640,7 +637,12 @@ def user_list(request):
     qs = User.objects.order_by('-date_joined')
     q = request.GET.get('q','').strip()
     role = request.GET.get('role','')
-    if q: qs = qs.filter(Q(email__icontains=q)|Q(first_name__icontains=q)|Q(last_name__icontains=q))
+    if q:
+        qs = qs.filter(
+            Q(email__icontains=q) |
+            Q(employee_profile__first_name__icontains=q) |
+            Q(employee_profile__last_name__icontains=q)
+        ).distinct()
     if role: qs = qs.filter(role=role)
     from apps.authentication.models import User as U
     return render(request, 'hr_admin/users/list.html', {
@@ -661,7 +663,6 @@ def user_add(request):
             try:
                 user = User.objects.create_user(
                     email=email, password=d.get('password','Welcome@123'),
-                    first_name=d.get('first_name',''), last_name=d.get('last_name',''),
                     role=d.get('role','employee'),
                     is_active=d.get('is_active')=='on',
                     is_staff=d.get('role') in ('super_admin','hr_admin'),
@@ -680,8 +681,13 @@ def user_edit(request, pk):
     u = get_object_or_404(User, id=pk)
     if request.method == 'POST':
         d = request.POST
-        u.first_name=d.get('first_name',u.first_name)
-        u.last_name=d.get('last_name',u.last_name)
+        try:
+            employee = u.employee_profile
+            employee.first_name = d.get('first_name', employee.first_name)
+            employee.last_name = d.get('last_name', employee.last_name)
+            employee.save(update_fields=['first_name', 'last_name', 'updated_at'])
+        except Exception:
+            pass
         u.role=d.get('role',u.role)
         u.is_active=d.get('is_active')=='on'
         u.is_staff=u.role in ('super_admin','hr_admin')
