@@ -76,8 +76,8 @@
 
       {% if user.can_manage_payroll %}
       <div class="nav-section">Payroll</div>
-      <a href="/payroll/" class="nav-item"><i class="fas fa-money-bill-wave" style="width:17px;text-align:center;color:#9CA3AF;font-size:14px;"></i><span>Payroll</span></a>
-      <a href="/hr/salary-structures/" class="nav-item"><i class="fas fa-file-invoice-dollar" style="width:17px;text-align:center;color:#9CA3AF;font-size:14px;"></i><span>Salary Structures</span></a>
+      <a href="/manage/payroll/" class="nav-item"><i class="fas fa-money-bill-wave" style="width:17px;text-align:center;color:#9CA3AF;font-size:14px;"></i><span>Payroll</span></a>
+      <a href="/manage/payroll/structures/" class="nav-item"><i class="fas fa-file-invoice-dollar" style="width:17px;text-align:center;color:#9CA3AF;font-size:14px;"></i><span>Salary Structures</span></a>
       {% endif %}
 
       {% if user.can_access_reports %}
@@ -91,6 +91,8 @@
 
       {% if user.role == 'super_admin' or user.role == 'hr_admin' %}
       <div class="nav-section">Administration</div>
+      <a href="/manage/" class="nav-item"><i class="fas fa-table-columns" style="width:17px;text-align:center;color:#9CA3AF;font-size:14px;"></i><span>Admin Dashboard</span></a>
+      <a href="/manage/approval-flow/" class="nav-item"><i class="fas fa-route" style="width:17px;text-align:center;color:#9CA3AF;font-size:14px;"></i><span>Approval Flow</span></a>
       <a href="/manage/users/" class="nav-item"><i class="fas fa-user-gear" style="width:17px;text-align:center;color:#9CA3AF;font-size:14px;"></i><span>User Management</span></a>
       <a href="/hr/audit-logs/" class="nav-item"><i class="fas fa-shield-halved" style="width:17px;text-align:center;color:#9CA3AF;font-size:14px;"></i><span>Audit Logs</span></a>
       {% endif %}

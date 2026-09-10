@@ -12,10 +12,10 @@
         <button onclick="showSection('payslips')" id="btn-payslips" class="pay-btn px-4 py-2 bg-white text-gray-700 border border-gray-200 text-sm font-semibold rounded-lg">Payslips</button>
         <button onclick="showSection('periods')" id="btn-periods" class="pay-btn px-4 py-2 bg-white text-gray-700 border border-gray-200 text-sm font-semibold rounded-lg">Payroll Periods</button>
         <a href="/reports/payroll/" class="px-4 py-2 bg-white text-gray-700 border border-gray-200 text-sm font-semibold rounded-lg hover:bg-gray-50">Payroll Reports</a>
-        <a href="/admin/payroll/salarycomponent/" target="_blank" class="px-4 py-2 bg-white text-gray-700 border border-gray-200 text-sm font-semibold rounded-lg hover:bg-gray-50"><i class="fas fa-sliders-h mr-1"></i>Salary Components</a>
-        <a href="/admin/payroll/salarystructure/" target="_blank" class="px-4 py-2 bg-white text-gray-700 border border-gray-200 text-sm font-semibold rounded-lg hover:bg-gray-50"><i class="fas fa-layer-group mr-1"></i>Salary Structures</a>
-        <a href="/admin/payroll/employeesalary/" target="_blank" class="px-4 py-2 bg-white text-gray-700 border border-gray-200 text-sm font-semibold rounded-lg hover:bg-gray-50"><i class="fas fa-user-tag mr-1"></i>Employee Salaries</a>
-        <a href="/admin/payroll/payrollperiod/" target="_blank" class="px-4 py-2 bg-white text-gray-700 border border-gray-200 text-sm font-semibold rounded-lg hover:bg-gray-50"><i class="fas fa-calendar-alt mr-1"></i>Payroll Periods</a>
+        <a href="/manage/payroll/components/" class="px-4 py-2 bg-white text-gray-700 border border-gray-200 text-sm font-semibold rounded-lg hover:bg-gray-50"><i class="fas fa-sliders-h mr-1"></i>Salary Components</a>
+        <a href="/manage/payroll/structures/" class="px-4 py-2 bg-white text-gray-700 border border-gray-200 text-sm font-semibold rounded-lg hover:bg-gray-50"><i class="fas fa-layer-group mr-1"></i>Salary Structures</a>
+        <a href="/manage/payroll/employee-salaries/" class="px-4 py-2 bg-white text-gray-700 border border-gray-200 text-sm font-semibold rounded-lg hover:bg-gray-50"><i class="fas fa-user-tag mr-1"></i>Employee Salaries</a>
+        <a href="/manage/payroll/periods/" class="px-4 py-2 bg-white text-gray-700 border border-gray-200 text-sm font-semibold rounded-lg hover:bg-gray-50"><i class="fas fa-calendar-alt mr-1"></i>Payroll Periods</a>
     </div>
 
     <!-- Summary Section -->
@@ -129,7 +129,7 @@ async function loadSummary() {
         }
         const periods = await r.json();
         if (!periods.length) {
-            grid.innerHTML = '<div class="col-span-3 py-8 text-center text-gray-400">No payroll periods found. Create payroll periods in the admin panel.</div>';
+            grid.innerHTML = '<div class="col-span-3 py-8 text-center text-gray-400">No payroll periods found. <a href="/manage/payroll/periods/" class="text-blue-600 underline">Create payroll periods in the admin portal</a>.</div>';
             return;
         }
         const latest = periods[0];
@@ -163,7 +163,7 @@ async function loadSummary() {
             </tr>`).join('')}</tbody>
         </table>`;
     } catch(e) {
-        grid.innerHTML = `<div class="col-span-3 py-8 text-center text-gray-400">Payroll module ready. <a href="/admin/" target="_blank" class="text-blue-600 underline">Configure payroll in admin panel</a>.</div>`;
+        grid.innerHTML = `<div class="col-span-3 py-8 text-center text-gray-400">Payroll module ready. <a href="/manage/payroll/" class="text-blue-600 underline">Configure payroll in the admin portal</a>.</div>`;
     }
 }
 

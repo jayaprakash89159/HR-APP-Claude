@@ -153,20 +153,55 @@ class LeaveApplicationDetailAPIView(APIView):
         return app
 
     def patch(self, request, pk):
-        """Approve/reject a leave application"""
+        """Approve/reject a leave application through configured manager/HR stages."""
         if not getattr(request.user, 'can_approve_leaves', False):
             return Response({'error': 'Permission denied'}, status=403)
         app = self.get_object(pk, request.user)
         if not app:
             return Response({'error': 'Not found'}, status=404)
+
         new_status = request.data.get('status')
+        level = int(request.data.get('level', 1))
+        remarks = request.data.get('remarks', '')
+
         if new_status not in ('approved', 'rejected', 'cancelled'):
             return Response({'error': 'Invalid status'}, status=400)
-        app.status = new_status
-        app.hr_status = new_status
-        app.hr_reviewed_by = request.user
-        app.hr_reviewed_at = timezone.now()
-        app.hr_remarks = request.data.get('remarks', '')
+
+        if new_status == 'approved':
+            if level == 1:
+                app.manager_status = 'approved'
+                app.manager_reviewed_by = request.user
+                app.manager_reviewed_at = timezone.now()
+                app.manager_remarks = remarks
+                app.current_approval_level = 2
+                app.status = 'pending'
+            elif level == 2:
+                app.hr_status = 'approved'
+                app.hr_reviewed_by = request.user
+                app.hr_reviewed_at = timezone.now()
+                app.hr_remarks = remarks
+                app.current_approval_level = 2
+                if app.manager_status == 'approved':
+                    app.status = 'approved'
+                else:
+                    app.status = 'pending'
+            else:
+                app.status = 'approved'
+        elif new_status == 'rejected':
+            if level == 1:
+                app.manager_status = 'rejected'
+                app.manager_reviewed_by = request.user
+                app.manager_reviewed_at = timezone.now()
+                app.manager_remarks = remarks
+            elif level == 2:
+                app.hr_status = 'rejected'
+                app.hr_reviewed_by = request.user
+                app.hr_reviewed_at = timezone.now()
+                app.hr_remarks = remarks
+            app.status = 'rejected'
+        else:
+            app.status = 'cancelled'
+
         app.save()
         return Response(LeaveApplicationSerializer.serialize(app))
 
@@ -199,7 +234,11 @@ class LeavePendingApprovalsAPIView(APIView):
             try:
                 manager_emp = user.employee_profile
                 team = Employee.objects.filter(reporting_manager=manager_emp)
-                qs = LeaveApplication.objects.filter(employee__in=team, status='pending').select_related('employee', 'leave_type').order_by('-created_at')
+                qs = LeaveApplication.objects.filter(
+                    employee__in=team,
+                    status='pending',
+                    current_approval_level=1
+                ).select_related('employee', 'leave_type').order_by('-created_at')
             except Exception:
                 return Response([])
         result = []

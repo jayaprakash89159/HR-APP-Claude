@@ -1,0 +1,71 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Home</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='workflow' %}">Workflow</a>
+    &rsaquo; <a href="{% url 'admin:workflow_approvalmodule_changelist' %}">Approval Modules</a>
+    &rsaquo; Approval Flow Configuration
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <h1>Approval Flow Configuration</h1>
+    <p>Set approval modules, rules, and assignees for leave and attendance requests.</p>
+
+    <div class="module">
+        {% for module in modules %}
+            <div style="border:1px solid #d0d0d0; margin: 12px 0; padding: 16px; border-radius: 6px; background:#fff;">
+                <h2 style="margin-top:0;">
+                    {{ module.label }}
+                    <small style="color:#666;">({{ module.name }})</small>
+                </h2>
+
+                {% if module.rules.all %}
+                    <table style="width:100%; border-collapse: collapse; margin-top: 8px;">
+                        <thead>
+                            <tr style="background:#f5f5f5; text-align:left;">
+                                <th style="padding:8px; border-bottom:1px solid #ddd;">Level</th>
+                                <th style="padding:8px; border-bottom:1px solid #ddd;">Rule Name</th>
+                                <th style="padding:8px; border-bottom:1px solid #ddd;">Approver Role</th>
+                                <th style="padding:8px; border-bottom:1px solid #ddd;">Assigned To</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for rule in module.rules.all %}
+                                <tr>
+                                    <td style="padding:8px; border-bottom:1px solid #eee;">{{ rule.level_number }}</td>
+                                    <td style="padding:8px; border-bottom:1px solid #eee;">{{ rule.name }}</td>
+                                    <td style="padding:8px; border-bottom:1px solid #eee;">{{ rule.get_approver_role_display }}</td>
+                                    <td style="padding:8px; border-bottom:1px solid #eee;">
+                                        {% for assignment in rule.assignments.all %}
+                                            {% if assignment.is_active %}
+                                                {% if assignment.user %}{{ assignment.user.get_full_name|default:assignment.user.email }}{% endif %}
+                                                {% if assignment.employee %}{{ assignment.employee.get_full_name }}{% endif %}
+                                                {% if assignment.department %}{{ assignment.department.name }}{% endif %}
+                                                {% if not forloop.last %}<br>{% endif %}
+                                            {% endif %}
+                                        {% empty %}
+                                            <span style="color:#777;">Not assigned yet</span>
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="4" style="padding: 10px; color:#666;">No approval rules configured for this module yet.</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p>No approval rules configured for this module yet.</p>
+                {% endif %}
+            </div>
+        {% empty %}
+            <p>No approval modules have been created yet.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

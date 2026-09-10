@@ -65,7 +65,7 @@ class ClockInView(APIView):
         attendance.clock_in_longitude = longitude
         attendance.clock_in_address = address
         attendance.clock_in_within_geofence = within_geofence
-        attendance.status = 'present'
+        attendance.status = 'absent'
         # Every fresh punch needs admin/manager approval before it
         # counts toward attendance reports.
         attendance.approval_status = 'pending'
@@ -205,6 +205,7 @@ class ClockOutView(APIView):
         attendance.approval_status = 'pending'
         attendance.approved_by = None
         attendance.approved_at = None
+        attendance.status = 'absent'
 
         # Calculate working hours
         total_mins = int((now - attendance.clock_in).total_seconds() / 60)
@@ -538,6 +539,10 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         attendance.approved_by = user
         attendance.approved_at = timezone.now()
         attendance.approval_remarks = request.data.get('remarks', '')
+
+        if decision == 'approved' and attendance.clock_in and attendance.clock_out:
+            attendance.status = 'present'
+
         if decision == 'rejected':
             # A rejected punch should not silently read as a normal absence
             # in reports — mark it explicitly so HR can see it was disputed.

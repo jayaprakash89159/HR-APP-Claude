@@ -23,7 +23,7 @@ urlpatterns = [
     path('shifts/',     include('apps.shifts.urls')),
     path('reports/',    include('apps.reports.urls')),
     path('hr/',         include('apps.dashboard.hr_urls')),
-    path('manage/',     include('apps.hr_admin.urls')),
+    path('manage/',     include(('apps.hr_admin.urls', 'hr_admin'), namespace='hr_admin')),
 
     # REST API v1
     path('api/v1/', include([
@@ -36,6 +36,7 @@ urlpatterns = [
         path('reports/',       include('apps.reports.api_urls')),
         path('notifications/', include('apps.notifications.api_urls')),
         path('dashboard/',     include('apps.dashboard.api_urls')),
+        path('workflow/',      include('apps.workflow.api_urls')),
     ])),
 
     # API docs

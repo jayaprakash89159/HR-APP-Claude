@@ -1,0 +1,44 @@
+{% extends "base/base.html" %}
+{% block title %}Payroll Management{% endblock %}
+{% block page_title %}Payroll Management{% endblock %}
+{% block page_subtitle %}All payroll configuration and processing from the main admin portal{% endblock %}
+{% block content %}
+<div class="space-y-6">
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+      <p class="text-xs uppercase tracking-wide text-slate-500">Salary Components</p>
+      <h3 class="mt-3 text-3xl font-bold text-slate-900">{{ stats.components }}</h3>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+      <p class="text-xs uppercase tracking-wide text-slate-500">Salary Structures</p>
+      <h3 class="mt-3 text-3xl font-bold text-slate-900">{{ stats.structures }}</h3>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+      <p class="text-xs uppercase tracking-wide text-slate-500">Employee Salaries</p>
+      <h3 class="mt-3 text-3xl font-bold text-slate-900">{{ stats.employee_salaries }}</h3>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+      <p class="text-xs uppercase tracking-wide text-slate-500">Payroll Periods</p>
+      <h3 class="mt-3 text-3xl font-bold text-slate-900">{{ stats.periods }}</h3>
+    </div>
+  </div>
+
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+    <div class="px-5 py-4 border-b border-slate-200 bg-slate-50 flex flex-wrap gap-3 items-center justify-between">
+      <div>
+        <h3 class="text-lg font-semibold text-slate-800">Payroll Admin</h3>
+        <p class="text-sm text-slate-500">Manage payroll master data, employee salary records and periods inside the app.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="{% url 'hr_admin:payroll_components' %}" class="px-3 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg">Salary Components</a>
+        <a href="{% url 'hr_admin:payroll_structures' %}" class="px-3 py-2 bg-slate-100 text-slate-700 text-sm font-semibold rounded-lg">Salary Structures</a>
+        <a href="{% url 'hr_admin:payroll_employee_salaries' %}" class="px-3 py-2 bg-slate-100 text-slate-700 text-sm font-semibold rounded-lg">Employee Salaries</a>
+        <a href="{% url 'hr_admin:payroll_periods' %}" class="px-3 py-2 bg-slate-100 text-slate-700 text-sm font-semibold rounded-lg">Payroll Periods</a>
+      </div>
+    </div>
+    <div class="p-6 text-sm text-slate-600 leading-7">
+      This admin page replaces the Django admin links for core payroll configuration. You can manage salary components, structures, employee salary records and payroll periods without leaving the main admin portal.
+    </div>
+  </div>
+</div>
+{% endblock %}

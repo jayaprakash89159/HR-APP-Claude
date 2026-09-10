@@ -12,9 +12,104 @@ from django.core.exceptions import PermissionDenied
 from django.db import transaction, IntegrityError
 from django.db.models import Q, Count, Sum
 from django.http import JsonResponse, HttpResponse
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
+
+from apps.authentication.models import User
+from apps.employees.models import Employee, Department, Designation
+from apps.workflow.models import ApprovalModule, ApprovalRule, ApprovalAssignment
+
+
+@login_required
+def admin_dashboard(request):
+    if not getattr(request.user, 'is_admin_portal', False):
+        raise PermissionDenied('Admin access required.')
+
+    from apps.attendance.models import Attendance
+    from apps.leave_management.models import LeaveApplication
+
+    modules = ApprovalModule.objects.prefetch_related('rules__assignments').all()
+    stats = {
+        'employees': Employee.objects.filter(status='active').count(),
+        'pending_leaves': LeaveApplication.objects.filter(status='pending').count(),
+        'pending_attendance': Attendance.objects.filter(approval_status='pending').count(),
+        'approval_modules': modules.count(),
+    }
+
+    return render(request, 'hr_admin/dashboard.html', {
+        'stats': stats,
+        'modules': modules,
+    })
+
+
+@login_required
+def approval_flow_dashboard(request):
+    if not getattr(request.user, 'is_admin_portal', False):
+        raise PermissionDenied('Admin access required.')
+
+    from apps.authentication.models import User
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'add_module':
+            label = (request.POST.get('label') or '').strip()
+            name = (request.POST.get('name') or '').strip()
+            if label and name:
+                ApprovalModule.objects.update_or_create(name=name, defaults={'label': label, 'is_active': True})
+                messages.success(request, 'Approval module saved successfully.')
+        elif action == 'add_rule':
+            module_id = request.POST.get('module')
+            name = (request.POST.get('name') or '').strip()
+            level_number = request.POST.get('level_number')
+            approver_role = request.POST.get('approver_role')
+            if module_id and name and level_number and approver_role:
+                module = ApprovalModule.objects.get(id=module_id)
+                ApprovalRule.objects.update_or_create(
+                    module=module,
+                    level_number=int(level_number),
+                    name=name,
+                    defaults={'approver_role': approver_role, 'is_required': True, 'is_active': True},
+                )
+                messages.success(request, 'Approval rule saved successfully.')
+        elif action == 'add_assignment':
+            module_id = request.POST.get('module')
+            rule_id = request.POST.get('rule')
+            user_id = request.POST.get('user')
+            department_id = request.POST.get('department')
+            designation_id = request.POST.get('designation')
+            employee_id = request.POST.get('employee')
+            if module_id and rule_id:
+                module = ApprovalModule.objects.get(id=module_id)
+                rule = ApprovalRule.objects.get(id=rule_id)
+                if user_id or department_id or designation_id or employee_id:
+                    ApprovalAssignment.objects.create(
+                        module=module,
+                        rule=rule,
+                        user=User.objects.filter(id=user_id).first() if user_id else None,
+                        department=Department.objects.filter(id=department_id).first() if department_id else None,
+                        designation=Designation.objects.filter(id=designation_id).first() if designation_id else None,
+                        employee=Employee.objects.filter(id=employee_id).first() if employee_id else None,
+                        is_active=True,
+                    )
+                    messages.success(request, 'Approval assignment created successfully.')
+
+        return redirect('hr_admin:approval_flow_dashboard')
+
+    modules = ApprovalModule.objects.prefetch_related('rules__assignments').all()
+    rules = ApprovalRule.objects.select_related('module').order_by('module__label', 'level_number', 'name')
+    employees = Employee.objects.select_related('user', 'department', 'designation').order_by('first_name', 'last_name')
+
+    return render(request, 'hr_admin/approval_flow.html', {
+        'modules': modules,
+        'rules': rules,
+        'users': User.objects.filter(is_active=True).order_by('email'),
+        'departments': Department.objects.filter(is_active=True).order_by('name'),
+        'designations': Designation.objects.filter(is_active=True).order_by('name'),
+        'employees': employees,
+        'approver_roles': ApprovalRule.APPROVER_ROLE_CHOICES,
+    })
 
 
 # ─────────────────────────────────────────────
@@ -38,6 +133,374 @@ def api_admin_required(view_func):
             return JsonResponse({'error': 'Admin access required'}, status=403)
         return view_func(request, *args, **kwargs)
     return wrapper
+
+
+@admin_required
+def payroll_management(request):
+    from apps.payroll.models import SalaryComponent, SalaryStructure, EmployeeSalary, PayrollPeriod
+    stats = {
+        'components': SalaryComponent.objects.filter(is_active=True).count(),
+        'structures': SalaryStructure.objects.filter(is_active=True).count(),
+        'employee_salaries': EmployeeSalary.objects.filter(is_active=True).count(),
+        'periods': PayrollPeriod.objects.count(),
+    }
+    return render(request, 'hr_admin/payroll/dashboard.html', {'stats': stats})
+
+
+@admin_required
+def payroll_components(request):
+    from apps.payroll.models import SalaryComponent
+    rows = []
+    for component in SalaryComponent.objects.order_by('component_type', 'display_order', 'name'):
+        rows.append({
+            'name': component.name,
+            'code': component.code,
+            'type': component.get_component_type_display(),
+            'calc': component.get_calculation_type_display(),
+            'status': 'Active' if component.is_active else 'Inactive',
+            'edit_url': reverse('hr_admin:payroll_component_edit', args=[component.id]),
+        })
+    return render(request, 'hr_admin/payroll/list.html', {
+        'title': 'Salary Components',
+        'subtitle': 'Manage earning and deduction components used across salary structures.',
+        'columns': ['Name', 'Code', 'Type', 'Calculation', 'Status', 'Actions'],
+        'rows': rows,
+        'add_url': reverse('hr_admin:payroll_component_add'),
+        'add_label': 'Add Salary Component',
+        'entity_name': 'Salary Component',
+    })
+
+
+@admin_required
+def payroll_component_add(request):
+    from apps.payroll.models import SalaryComponent
+    if request.method == 'POST':
+        data = request.POST
+        obj, created = SalaryComponent.objects.update_or_create(
+            code=(data.get('code') or '').strip().upper(),
+            defaults={
+                'name': (data.get('name') or '').strip(),
+                'component_type': data.get('component_type', 'earning'),
+                'calculation_type': data.get('calculation_type', 'fixed'),
+                'fixed_amount': data.get('fixed_amount') or 0,
+                'percentage': data.get('percentage') or 0,
+                'formula': (data.get('formula') or '').strip(),
+                'is_taxable': data.get('is_taxable') == 'on',
+                'is_statutory': data.get('is_statutory') == 'on',
+                'is_pf_applicable': data.get('is_pf_applicable') == 'on',
+                'is_esi_applicable': data.get('is_esi_applicable') == 'on',
+                'display_order': data.get('display_order') or 0,
+                'is_active': data.get('is_active') != 'off',
+            }
+        )
+        messages.success(request, f"Salary component '{obj.name}' {'created' if created else 'updated'}.")
+        return redirect('hr_admin:payroll_components')
+    return render(request, 'hr_admin/payroll/form.html', {
+        'title': 'Add Salary Component',
+        'action': 'Add',
+        'entity_name': 'Salary Component',
+        'back_url': reverse('hr_admin:payroll_components'),
+        'form_type': 'component',
+    })
+
+
+@admin_required
+def payroll_component_edit(request, pk):
+    from apps.payroll.models import SalaryComponent
+    obj = get_object_or_404(SalaryComponent, id=pk)
+    if request.method == 'POST':
+        data = request.POST
+        obj.name = (data.get('name') or obj.name).strip()
+        obj.code = (data.get('code') or obj.code).strip().upper()
+        obj.component_type = data.get('component_type', obj.component_type)
+        obj.calculation_type = data.get('calculation_type', obj.calculation_type)
+        obj.fixed_amount = data.get('fixed_amount') or 0
+        obj.percentage = data.get('percentage') or 0
+        obj.formula = (data.get('formula') or '').strip()
+        obj.is_taxable = data.get('is_taxable') == 'on'
+        obj.is_statutory = data.get('is_statutory') == 'on'
+        obj.is_pf_applicable = data.get('is_pf_applicable') == 'on'
+        obj.is_esi_applicable = data.get('is_esi_applicable') == 'on'
+        obj.display_order = data.get('display_order') or 0
+        obj.is_active = data.get('is_active') != 'off'
+        obj.save()
+        messages.success(request, f"Salary component '{obj.name}' updated.")
+        return redirect('hr_admin:payroll_components')
+    return render(request, 'hr_admin/payroll/form.html', {
+        'title': 'Edit Salary Component',
+        'action': 'Edit',
+        'entity_name': 'Salary Component',
+        'back_url': reverse('hr_admin:payroll_components'),
+        'form_type': 'component',
+        'instance': obj,
+    })
+
+
+@admin_required
+def payroll_structures(request):
+    from apps.payroll.models import SalaryStructure
+    rows = []
+    for structure in SalaryStructure.objects.order_by('name'):
+        rows.append({
+            'name': structure.name,
+            'code': structure.code,
+            'description': structure.description or '—',
+            'components': structure.components.count(),
+            'status': 'Active' if structure.is_active else 'Inactive',
+            'edit_url': reverse('hr_admin:payroll_structure_edit', args=[structure.id]),
+        })
+    return render(request, 'hr_admin/payroll/list.html', {
+        'title': 'Salary Structures',
+        'subtitle': 'Create and manage the salary structure used for payroll calculations.',
+        'columns': ['Name', 'Code', 'Description', 'Components', 'Status', 'Actions'],
+        'rows': rows,
+        'add_url': reverse('hr_admin:payroll_structure_add'),
+        'add_label': 'Add Salary Structure',
+        'entity_name': 'Salary Structure',
+    })
+
+
+@admin_required
+def payroll_structure_add(request):
+    from apps.payroll.models import SalaryComponent, SalaryStructure
+    if request.method == 'POST':
+        data = request.POST
+        structure = SalaryStructure.objects.create(
+            name=(data.get('name') or '').strip(),
+            code=(data.get('code') or '').strip().upper(),
+            description=(data.get('description') or '').strip(),
+            is_active=data.get('is_active') != 'off',
+        )
+        selected = request.POST.getlist('component_ids')
+        if selected:
+            for idx, component_id in enumerate(selected):
+                structure.components.create(component_id=component_id, display_order=idx)
+        messages.success(request, f"Salary structure '{structure.name}' created.")
+        return redirect('hr_admin:payroll_structures')
+    return render(request, 'hr_admin/payroll/form.html', {
+        'title': 'Add Salary Structure',
+        'action': 'Add',
+        'entity_name': 'Salary Structure',
+        'back_url': reverse('hr_admin:payroll_structures'),
+        'form_type': 'structure',
+        'components': SalaryComponent.objects.filter(is_active=True).order_by('component_type', 'name'),
+    })
+
+
+@admin_required
+def payroll_structure_edit(request, pk):
+    from apps.payroll.models import SalaryComponent, SalaryStructure
+    structure = get_object_or_404(SalaryStructure, id=pk)
+    if request.method == 'POST':
+        data = request.POST
+        structure.name = (data.get('name') or structure.name).strip()
+        structure.code = (data.get('code') or structure.code).strip().upper()
+        structure.description = (data.get('description') or '').strip()
+        structure.is_active = data.get('is_active') != 'off'
+        structure.save()
+        selected = request.POST.getlist('component_ids')
+        structure.components.all().delete()
+        for idx, component_id in enumerate(selected):
+            structure.components.create(component_id=component_id, display_order=idx)
+        messages.success(request, f"Salary structure '{structure.name}' updated.")
+        return redirect('hr_admin:payroll_structures')
+    return render(request, 'hr_admin/payroll/form.html', {
+        'title': 'Edit Salary Structure',
+        'action': 'Edit',
+        'entity_name': 'Salary Structure',
+        'back_url': reverse('hr_admin:payroll_structures'),
+        'form_type': 'structure',
+        'instance': structure,
+        'components': SalaryComponent.objects.filter(is_active=True).order_by('component_type', 'name'),
+        'selected_component_ids': list(structure.components.values_list('component_id', flat=True)),
+    })
+
+
+@admin_required
+def payroll_employee_salaries(request):
+    from apps.payroll.models import EmployeeSalary
+    rows = []
+    for record in EmployeeSalary.objects.select_related('employee', 'salary_structure').order_by('-effective_from')[:200]:
+        rows.append({
+            'name': record.employee.get_full_name() if hasattr(record.employee, 'get_full_name') else str(record.employee),
+            'structure': record.salary_structure.name,
+            'monthly_ctc': f"₹{record.monthly_ctc:,.2f}",
+            'effective_from': record.effective_from,
+            'status': 'Active' if record.is_active else 'Inactive',
+            'edit_url': reverse('hr_admin:payroll_employee_salary_edit', args=[record.id]),
+        })
+    return render(request, 'hr_admin/payroll/list.html', {
+        'title': 'Employee Salaries',
+        'subtitle': 'Review employee salary assignments, revisions, and effective dates.',
+        'columns': ['Employee', 'Structure', 'Monthly CTC', 'Effective From', 'Status', 'Actions'],
+        'rows': rows,
+        'add_url': reverse('hr_admin:payroll_employee_salary_add'),
+        'add_label': 'Add Employee Salary',
+        'entity_name': 'Employee Salary',
+    })
+
+
+@admin_required
+def payroll_employee_salary_add(request):
+    from apps.payroll.models import EmployeeSalary, SalaryStructure
+    from apps.employees.models import Employee
+    if request.method == 'POST':
+        data = request.POST
+        employee = Employee.objects.filter(id=data.get('employee')).first()
+        structure = SalaryStructure.objects.filter(id=data.get('salary_structure')).first()
+        if not employee or not structure:
+            messages.error(request, 'Please select a valid employee and salary structure.')
+        else:
+            obj = EmployeeSalary.objects.create(
+                employee=employee,
+                salary_structure=structure,
+                ctc=data.get('ctc') or 0,
+                monthly_ctc=data.get('monthly_ctc') or 0,
+                basic=data.get('basic') or 0,
+                hra=data.get('hra') or 0,
+                special_allowance=data.get('special_allowance') or 0,
+                medical_allowance=data.get('medical_allowance') or 0,
+                conveyance_allowance=data.get('conveyance_allowance') or 0,
+                other_allowances=data.get('other_allowances') or 0,
+                gross_salary=data.get('gross_salary') or 0,
+                effective_from=data.get('effective_from') or timezone.now().date(),
+                effective_to=data.get('effective_to') or None,
+                salary_type=data.get('salary_type', 'monthly'),
+                revision_reason=(data.get('revision_reason') or '').strip(),
+                is_active=data.get('is_active') != 'off',
+                revised_by=request.user,
+            )
+            messages.success(request, f"Salary record for {employee.get_full_name()} created.")
+            return redirect('hr_admin:payroll_employee_salaries')
+    return render(request, 'hr_admin/payroll/form.html', {
+        'title': 'Add Employee Salary',
+        'action': 'Add',
+        'entity_name': 'Employee Salary',
+        'back_url': reverse('hr_admin:payroll_employee_salaries'),
+        'form_type': 'employee_salary',
+        'employees': Employee.objects.select_related('department', 'designation').order_by('first_name', 'last_name'),
+        'salary_structures': SalaryStructure.objects.filter(is_active=True).order_by('name'),
+    })
+
+
+@admin_required
+def payroll_employee_salary_edit(request, pk):
+    from apps.payroll.models import EmployeeSalary, SalaryStructure
+    from apps.employees.models import Employee
+    obj = get_object_or_404(EmployeeSalary, id=pk)
+    if request.method == 'POST':
+        data = request.POST
+        obj.employee_id = data.get('employee') or obj.employee_id
+        obj.salary_structure_id = data.get('salary_structure') or obj.salary_structure_id
+        obj.ctc = data.get('ctc') or obj.ctc
+        obj.monthly_ctc = data.get('monthly_ctc') or obj.monthly_ctc
+        obj.basic = data.get('basic') or obj.basic
+        obj.hra = data.get('hra') or obj.hra
+        obj.special_allowance = data.get('special_allowance') or obj.special_allowance
+        obj.medical_allowance = data.get('medical_allowance') or obj.medical_allowance
+        obj.conveyance_allowance = data.get('conveyance_allowance') or obj.conveyance_allowance
+        obj.other_allowances = data.get('other_allowances') or obj.other_allowances
+        obj.gross_salary = data.get('gross_salary') or obj.gross_salary
+        obj.effective_from = data.get('effective_from') or obj.effective_from
+        obj.effective_to = data.get('effective_to') or None
+        obj.salary_type = data.get('salary_type', obj.salary_type)
+        obj.revision_reason = (data.get('revision_reason') or '').strip()
+        obj.is_active = data.get('is_active') != 'off'
+        obj.revised_by = request.user
+        obj.save()
+        messages.success(request, f"Salary record for {obj.employee.get_full_name()} updated.")
+        return redirect('hr_admin:payroll_employee_salaries')
+    return render(request, 'hr_admin/payroll/form.html', {
+        'title': 'Edit Employee Salary',
+        'action': 'Edit',
+        'entity_name': 'Employee Salary',
+        'back_url': reverse('hr_admin:payroll_employee_salaries'),
+        'form_type': 'employee_salary',
+        'instance': obj,
+        'employees': Employee.objects.select_related('department', 'designation').order_by('first_name', 'last_name'),
+        'salary_structures': SalaryStructure.objects.filter(is_active=True).order_by('name'),
+    })
+
+
+@admin_required
+def payroll_periods(request):
+    from apps.payroll.models import PayrollPeriod
+    rows = []
+    for period in PayrollPeriod.objects.order_by('-year', '-month')[:200]:
+        rows.append({
+            'name': period.name,
+            'period': f"{period.month}/{period.year}",
+            'status': period.get_status_display(),
+            'employees': period.total_employees,
+            'net': f"₹{period.total_net:,.2f}",
+            'edit_url': reverse('hr_admin:payroll_period_edit', args=[period.id]),
+        })
+    return render(request, 'hr_admin/payroll/list.html', {
+        'title': 'Payroll Periods',
+        'subtitle': 'Track payroll cycle creation, processing, approval, and payment status.',
+        'columns': ['Name', 'Month / Year', 'Status', 'Employees', 'Net Amount', 'Actions'],
+        'rows': rows,
+        'add_url': reverse('hr_admin:payroll_period_add'),
+        'add_label': 'Add Payroll Period',
+        'entity_name': 'Payroll Period',
+    })
+
+
+@admin_required
+def payroll_period_add(request):
+    from apps.payroll.models import PayrollPeriod
+    if request.method == 'POST':
+        data = request.POST
+        period = PayrollPeriod.objects.create(
+            name=(data.get('name') or f"Payroll {data.get('month')}/{data.get('year')}").strip(),
+            month=data.get('month') or 1,
+            year=data.get('year') or timezone.now().year,
+            from_date=data.get('from_date') or timezone.now().date(),
+            to_date=data.get('to_date') or timezone.now().date(),
+            status=data.get('status', 'draft'),
+            total_employees=data.get('total_employees') or 0,
+            total_gross=data.get('total_gross') or 0,
+            total_deductions=data.get('total_deductions') or 0,
+            total_net=data.get('total_net') or 0,
+        )
+        messages.success(request, f"Payroll period '{period.name}' created.")
+        return redirect('hr_admin:payroll_periods')
+    return render(request, 'hr_admin/payroll/form.html', {
+        'title': 'Add Payroll Period',
+        'action': 'Add',
+        'entity_name': 'Payroll Period',
+        'back_url': reverse('hr_admin:payroll_periods'),
+        'form_type': 'period',
+    })
+
+
+@admin_required
+def payroll_period_edit(request, pk):
+    from apps.payroll.models import PayrollPeriod
+    obj = get_object_or_404(PayrollPeriod, id=pk)
+    if request.method == 'POST':
+        data = request.POST
+        obj.name = (data.get('name') or obj.name).strip()
+        obj.month = data.get('month') or obj.month
+        obj.year = data.get('year') or obj.year
+        obj.from_date = data.get('from_date') or obj.from_date
+        obj.to_date = data.get('to_date') or obj.to_date
+        obj.status = data.get('status', obj.status)
+        obj.total_employees = data.get('total_employees') or obj.total_employees
+        obj.total_gross = data.get('total_gross') or obj.total_gross
+        obj.total_deductions = data.get('total_deductions') or obj.total_deductions
+        obj.total_net = data.get('total_net') or obj.total_net
+        obj.save()
+        messages.success(request, f"Payroll period '{obj.name}' updated.")
+        return redirect('hr_admin:payroll_periods')
+    return render(request, 'hr_admin/payroll/form.html', {
+        'title': 'Edit Payroll Period',
+        'action': 'Edit',
+        'entity_name': 'Payroll Period',
+        'back_url': reverse('hr_admin:payroll_periods'),
+        'form_type': 'period',
+        'instance': obj,
+    })
 
 
 # ─────────────────────────────────────────────

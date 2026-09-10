@@ -15,7 +15,7 @@ SECRET_KEY = os.environ.get(
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 ALLOWED_HOSTS = os.environ.get(
     'ALLOWED_HOSTS',
-    'localhost,127.0.0.1,0.0.0.0'
+    'localhost,127.0.0.1,0.0.0.0,testserver,django,nginx,worksphere_django'
 ).split(',')
 
 INSTALLED_APPS = [
@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'apps.shifts',
     'apps.attendance',
     'apps.leave_management',
+    'apps.workflow',
     'apps.payroll',
     'apps.notifications',
     'apps.audit',

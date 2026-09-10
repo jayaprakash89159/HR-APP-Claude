@@ -1,0 +1,50 @@
+{% extends "base/base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_subtitle %}{{ subtitle }}{% endblock %}
+{% block content %}
+<div class="space-y-5">
+  <div class="flex justify-end">
+    {% if add_url %}
+      <a href="{{ add_url }}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700">
+        <i class="fas fa-plus mr-2"></i>{{ add_label|default:'Add New' }}
+      </a>
+    {% endif %}
+  </div>
+
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full">
+        <thead>
+          <tr class="bg-slate-50 border-b text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+            {% for column in columns %}
+            <th class="px-4 py-3">{{ column }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for row in rows %}
+          <tr class="hover:bg-slate-50 align-top">
+            {% for key, value in row.items %}
+              {% if key == 'edit_url' %}
+                <td class="px-4 py-3 text-sm">
+                  <a href="{{ value }}" class="inline-flex items-center px-2.5 py-1.5 bg-slate-100 text-slate-700 text-xs font-semibold rounded hover:bg-slate-200">
+                    <i class="fas fa-pen mr-1"></i>Edit
+                  </a>
+                </td>
+              {% else %}
+                <td class="px-4 py-3 text-sm text-slate-700">{{ value }}</td>
+              {% endif %}
+            {% endfor %}
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="{{ columns|length }}" class="px-4 py-12 text-center text-sm text-slate-400">No data available.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -3,6 +3,7 @@ WorkSphere HR - Leave Management Models
 """
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 from apps.employees.models import Employee
 import uuid
 
@@ -104,6 +105,7 @@ class LeaveApplication(models.Model):
     reason = models.TextField()
     document = models.FileField(upload_to='leave/documents/', null=True, blank=True)
     status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='pending')
+    current_approval_level = models.PositiveIntegerField(default=1)
 
     # Manager approval
     manager_status = models.CharField(max_length=15, choices=STATUS_CHOICES, blank=True)
@@ -136,6 +138,44 @@ class LeaveApplication(models.Model):
 
     def __str__(self):
         return f"{self.application_number} - {self.employee} - {self.leave_type}"
+
+    def approve_by_level(self, approver, level_number, remarks=''):
+        if level_number == 1:
+            self.manager_status = 'approved'
+            self.manager_reviewed_by = approver
+            self.manager_reviewed_at = timezone.now()
+            self.manager_remarks = remarks
+            self.current_approval_level = 2
+            if self.hr_status == 'approved':
+                self.status = 'approved'
+            else:
+                self.status = 'pending'
+        elif level_number == 2:
+            self.hr_status = 'approved'
+            self.hr_reviewed_by = approver
+            self.hr_reviewed_at = timezone.now()
+            self.hr_remarks = remarks
+            self.current_approval_level = 2
+            self.status = 'approved' if self.manager_status == 'approved' else 'pending'
+        else:
+            self.status = 'approved'
+        self.save()
+        return self
+
+    def reject_by_level(self, approver, level_number, remarks=''):
+        if level_number == 1:
+            self.manager_status = 'rejected'
+            self.manager_reviewed_by = approver
+            self.manager_reviewed_at = timezone.now()
+            self.manager_remarks = remarks
+        elif level_number == 2:
+            self.hr_status = 'rejected'
+            self.hr_reviewed_by = approver
+            self.hr_reviewed_at = timezone.now()
+            self.hr_remarks = remarks
+        self.status = 'rejected'
+        self.save()
+        return self
 
     def save(self, *args, **kwargs):
         if not self.application_number:

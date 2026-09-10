@@ -5,8 +5,8 @@
 {% block content %}
 <div class="space-y-5">
     <div class="flex justify-end">
-        <a href="/admin/" target="_blank" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg">
-            <i class="fas fa-plus mr-2"></i> Manage in Admin
+        <a href="/manage/payroll/structures/" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg">
+            <i class="fas fa-plus mr-2"></i> Manage in Payroll Admin
         </a>
     </div>
     {% if structures %}
@@ -20,7 +20,7 @@
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
         <i class="fas fa-file-invoice-dollar text-4xl text-gray-200 mb-4"></i>
         <p class="text-sm text-gray-500">No salary structures configured. Use the admin panel to create them.</p>
-        <a href="/admin/" target="_blank" class="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg">Go to Admin Panel</a>
+        <a href="/manage/payroll/structures/" class="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg">Go to Payroll Admin</a>
     </div>
     {% endif %}
 </div>

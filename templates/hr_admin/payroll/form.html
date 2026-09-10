@@ -1,0 +1,241 @@
+{% extends "base/base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_subtitle %}Manage {{ entity_name|lower }} details inside the main admin portal{% endblock %}
+{% block content %}
+<div class="max-w-4xl space-y-6">
+  {% if messages %}
+    {% for message in messages %}
+      <div class="p-3 rounded-lg text-sm {% if message.tags == 'error' %}bg-red-50 text-red-700{% else %}bg-green-50 text-green-700{% endif %}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <form method="post" class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-6">
+    {% csrf_token %}
+
+    {% if form_type == 'component' %}
+      <div class="grid md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Name</label>
+          <input type="text" name="name" value="{{ instance.name|default:'' }}" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Code</label>
+          <input type="text" name="code" value="{{ instance.code|default:'' }}" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm uppercase" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Type</label>
+          <select name="component_type" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+            <option value="earning" {% if instance.component_type == 'earning' or not instance %}selected{% endif %}>Earning</option>
+            <option value="deduction" {% if instance.component_type == 'deduction' %}selected{% endif %}>Deduction</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Calculation</label>
+          <select name="calculation_type" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+            <option value="fixed" {% if instance.calculation_type == 'fixed' or not instance %}selected{% endif %}>Fixed Amount</option>
+            <option value="percentage" {% if instance.calculation_type == 'percentage' %}selected{% endif %}>Percentage of Basic</option>
+            <option value="percentage_ctc" {% if instance.calculation_type == 'percentage_ctc' %}selected{% endif %}>Percentage of CTC</option>
+            <option value="formula" {% if instance.calculation_type == 'formula' %}selected{% endif %}>Formula Based</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Fixed Amount</label>
+          <input type="number" step="0.01" name="fixed_amount" value="{{ instance.fixed_amount|default:'0' }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Percentage</label>
+          <input type="number" step="0.01" name="percentage" value="{{ instance.percentage|default:'0' }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-slate-700 mb-1">Formula</label>
+          <input type="text" name="formula" value="{{ instance.formula|default:'' }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="basic * 0.1 + 200" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Display Order</label>
+          <input type="number" name="display_order" value="{{ instance.display_order|default:'0' }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        </div>
+        <div class="flex items-center gap-2 pt-7">
+          <input type="checkbox" name="is_active" {% if instance.is_active or not instance %}checked{% endif %} class="h-4 w-4 rounded" />
+          <label class="text-sm font-medium text-slate-700">Active</label>
+        </div>
+      </div>
+      <div class="grid md:grid-cols-2 gap-3">
+        <label class="flex items-center gap-2"><input type="checkbox" name="is_taxable" {% if instance.is_taxable or not instance %}checked{% endif %} /> <span>Taxable</span></label>
+        <label class="flex items-center gap-2"><input type="checkbox" name="is_statutory" {% if instance.is_statutory %}checked{% endif %} /> <span>Statutory</span></label>
+        <label class="flex items-center gap-2"><input type="checkbox" name="is_pf_applicable" {% if instance.is_pf_applicable %}checked{% endif %} /> <span>PF Applicable</span></label>
+        <label class="flex items-center gap-2"><input type="checkbox" name="is_esi_applicable" {% if instance.is_esi_applicable %}checked{% endif %} /> <span>ESI Applicable</span></label>
+      </div>
+    {% elif form_type == 'structure' %}
+      <div class="grid md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Name</label>
+          <input type="text" name="name" value="{{ instance.name|default:'' }}" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Code</label>
+          <input type="text" name="code" value="{{ instance.code|default:'' }}" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm uppercase" />
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-slate-700 mb-1">Description</label>
+          <textarea name="description" rows="3" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">{{ instance.description|default:'' }}</textarea>
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-slate-700 mb-1">Components</label>
+          <div class="grid md:grid-cols-2 gap-2 border border-slate-200 rounded-lg p-3">
+            {% for comp in components %}
+              <label class="flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" name="component_ids" value="{{ comp.id }}" {% if comp.id in selected_component_ids %}checked{% endif %} />
+                <span>{{ comp.name }} ({{ comp.code }})</span>
+              </label>
+            {% empty %}
+              <span class="text-sm text-slate-400">No active components available yet.</span>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="md:col-span-2 flex items-center gap-2">
+          <input type="checkbox" name="is_active" {% if instance.is_active or not instance %}checked{% endif %} class="h-4 w-4 rounded" />
+          <label class="text-sm font-medium text-slate-700">Active</label>
+        </div>
+      </div>
+    {% elif form_type == 'employee_salary' %}
+      <div class="grid md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Employee</label>
+          <select name="employee" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+            <option value="">Select employee</option>
+            {% for emp in employees %}
+              <option value="{{ emp.id }}" {% if instance.employee_id == emp.id %}selected{% endif %}>{{ emp.get_full_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Salary Structure</label>
+          <select name="salary_structure" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+            <option value="">Select structure</option>
+            {% for structure in salary_structures %}
+              <option value="{{ structure.id }}" {% if instance.salary_structure_id == structure.id %}selected{% endif %}>{{ structure.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">CTC</label>
+          <input type="number" step="0.01" name="ctc" value="{{ instance.ctc|default:'0' }}" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Monthly CTC</label>
+          <input type="number" step="0.01" name="monthly_ctc" value="{{ instance.monthly_ctc|default:'0' }}" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Basic</label>
+          <input type="number" step="0.01" name="basic" value="{{ instance.basic|default:'0' }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">HRA</label>
+          <input type="number" step="0.01" name="hra" value="{{ instance.hra|default:'0' }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Special Allowance</label>
+          <input type="number" step="0.01" name="special_allowance" value="{{ instance.special_allowance|default:'0' }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Medical Allowance</label>
+          <input type="number" step="0.01" name="medical_allowance" value="{{ instance.medical_allowance|default:'0' }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Conveyance</label>
+          <input type="number" step="0.01" name="conveyance_allowance" value="{{ instance.conveyance_allowance|default:'0' }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Other Allowances</label>
+          <input type="number" step="0.01" name="other_allowances" value="{{ instance.other_allowances|default:'0' }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Gross Salary</label>
+          <input type="number" step="0.01" name="gross_salary" value="{{ instance.gross_salary|default:'0' }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Effective From</label>
+          <input type="date" name="effective_from" value="{{ instance.effective_from|date:'Y-m-d'|default:'' }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Effective To</label>
+          <input type="date" name="effective_to" value="{{ instance.effective_to|date:'Y-m-d'|default:'' }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Salary Type</label>
+          <select name="salary_type" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+            <option value="monthly" {% if instance.salary_type == 'monthly' or not instance %}selected{% endif %}>Monthly</option>
+            <option value="daily" {% if instance.salary_type == 'daily' %}selected{% endif %}>Daily</option>
+            <option value="hourly" {% if instance.salary_type == 'hourly' %}selected{% endif %}>Hourly</option>
+          </select>
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-slate-700 mb-1">Revision Reason</label>
+          <textarea name="revision_reason" rows="2" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">{{ instance.revision_reason|default:'' }}</textarea>
+        </div>
+        <div class="md:col-span-2 flex items-center gap-2">
+          <input type="checkbox" name="is_active" {% if instance.is_active or not instance %}checked{% endif %} class="h-4 w-4 rounded" />
+          <label class="text-sm font-medium text-slate-700">Active</label>
+        </div>
+      </div>
+    {% elif form_type == 'period' %}
+      <div class="grid md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Name</label>
+          <input type="text" name="name" value="{{ instance.name|default:'' }}" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Status</label>
+          <select name="status" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+            <option value="draft" {% if instance.status == 'draft' or not instance %}selected{% endif %}>Draft</option>
+            <option value="processing" {% if instance.status == 'processing' %}selected{% endif %}>Processing</option>
+            <option value="processed" {% if instance.status == 'processed' %}selected{% endif %}>Processed</option>
+            <option value="approved" {% if instance.status == 'approved' %}selected{% endif %}>Approved</option>
+            <option value="released" {% if instance.status == 'released' %}selected{% endif %}>Released</option>
+            <option value="paid" {% if instance.status == 'paid' %}selected{% endif %}>Paid</option>
+            <option value="locked" {% if instance.status == 'locked' %}selected{% endif %}>Locked</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Month</label>
+          <input type="number" min="1" max="12" name="month" value="{{ instance.month|default:'1' }}" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Year</label>
+          <input type="number" min="2020" name="year" value="{{ instance.year|default:'' }}" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">From Date</label>
+          <input type="date" name="from_date" value="{{ instance.from_date|date:'Y-m-d'|default:'' }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">To Date</label>
+          <input type="date" name="to_date" value="{{ instance.to_date|date:'Y-m-d'|default:'' }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Employees</label>
+          <input type="number" name="total_employees" value="{{ instance.total_employees|default:'0' }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Gross</label>
+          <input type="number" step="0.01" name="total_gross" value="{{ instance.total_gross|default:'0' }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Deductions</label>
+          <input type="number" step="0.01" name="total_deductions" value="{{ instance.total_deductions|default:'0' }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Net</label>
+          <input type="number" step="0.01" name="total_net" value="{{ instance.total_net|default:'0' }}" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="flex justify-end gap-3 pt-2">
+      <a href="{{ back_url }}" class="px-5 py-2.5 bg-slate-100 text-slate-700 rounded-lg text-sm font-semibold">Cancel</a>
+      <button type="submit" class="px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-semibold">{{ action }}</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

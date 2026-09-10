@@ -1,0 +1,59 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Admin Dashboard{% endblock %}
+{% block page_title %}Admin Dashboard{% endblock %}
+{% block page_subtitle %}Super admin control center{% endblock %}
+
+{% block content %}
+<div style="display:grid;grid-template-columns: repeat(auto-fit,minmax(220px,1fr));gap:18px; margin-bottom:22px;">
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:20px;box-shadow:0 1px 2px rgba(15,23,42,.04);">
+    <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.08em;">Employees</div>
+    <div style="font-size:32px;font-weight:800;color:#0f172a;margin-top:12px;">{{ stats.employees }}</div>
+  </div>
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:20px;box-shadow:0 1px 2px rgba(15,23,42,.04);">
+    <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.08em;">Pending Leaves</div>
+    <div style="font-size:32px;font-weight:800;color:#0f172a;margin-top:12px;">{{ stats.pending_leaves }}</div>
+  </div>
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:20px;box-shadow:0 1px 2px rgba(15,23,42,.04);">
+    <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.08em;">Pending Attendance</div>
+    <div style="font-size:32px;font-weight:800;color:#0f172a;margin-top:12px;">{{ stats.pending_attendance }}</div>
+  </div>
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:20px;box-shadow:0 1px 2px rgba(15,23,42,.04);">
+    <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.08em;">Approval Modules</div>
+    <div style="font-size:32px;font-weight:800;color:#0f172a;margin-top:12px;">{{ stats.approval_modules }}</div>
+  </div>
+</div>
+
+<div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:20px;box-shadow:0 1px 2px rgba(15,23,42,.04);">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;">
+    <h2 style="margin:0;font-size:20px;font-weight:700;color:#0f172a;">Approval Flow Overview</h2>
+    <a href="/manage/approval-flow/" style="display:inline-block;background:#2563eb;color:#fff;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:600;">Configure Flow</a>
+  </div>
+
+  {% if modules %}
+    <div style="display:grid;grid-template-columns: repeat(auto-fit,minmax(260px,1fr));gap:18px;">
+      {% for module in modules %}
+        <div style="border:1px solid #e5e7eb;border-radius:12px;padding:16px;background:#f8fafc;">
+          <div style="font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.08em;">{{ module.name }}</div>
+          <div style="font-size:18px;font-weight:700;color:#0f172a;margin-top:6px;">{{ module.label }}</div>
+          <div style="margin-top:12px;">
+            {% for rule in module.rules.all %}
+              <div style="padding:8px 10px;border-radius:8px;background:#fff;border:1px solid #e2e8f0;margin-bottom:8px;">
+                <div style="font-size:12px;color:#64748b;">Level {{ rule.level_number }}</div>
+                <div style="font-size:14px;font-weight:600;color:#0f172a;">{{ rule.name }}</div>
+                <div style="font-size:12px;color:#475569;">{{ rule.get_approver_role_display }}</div>
+              </div>
+            {% empty %}
+              <div style="padding:8px 10px;border-radius:8px;background:#fff;border:1px dashed #cbd5e1;color:#64748b;">No approval rules configured</div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div style="border:1px dashed #cbd5e1;border-radius:10px;padding:22px;text-align:center;color:#64748b;background:#f8fafc;">
+      No approval modules created yet. Configure the workflow from the approval page.
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

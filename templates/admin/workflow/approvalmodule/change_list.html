@@ -1,0 +1,11 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block object-tools-items %}
+    {{ block.super }}
+    <li>
+        <a href="{% url 'admin:workflow_approvalmodule_approval_flow' %}" class="addlink">
+            Approval Flow Configuration
+        </a>
+    </li>
+{% endblock %}
